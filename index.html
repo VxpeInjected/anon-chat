@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>anon chat</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+<style>
+:root{--bg:#313338;--side:#2b2d31;--dark:#1e1f22;--input:#383a40;--text:#dbdee1;--muted:#949ba4;--blurple:#5865f2;--hover:#2e3035;--green:#23a559;--red:#f23f43;--gold:#faa61a}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.4 "gg sans","Segoe UI",Helvetica,Arial,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input,textarea{font:inherit;color:var(--text)}
+[hidden]{display:none!important}
+::-webkit-scrollbar{width:10px}::-webkit-scrollbar-thumb{background:#1a1b1e;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
+
+/* auth */
+#auth{height:100%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 20%,#404eed 0,#232850 60%,#14162b 100%);padding:16px;overflow:auto}
+.card{background:var(--bg);border-radius:8px;padding:28px;width:100%;max-width:440px;box-shadow:0 8px 40px #0008}
+.card h1{margin:0 0 4px;font-size:24px;text-align:center}
+.card p.sub{margin:0 0 20px;text-align:center;color:var(--muted)}
+.btn{background:var(--blurple);color:#fff;border-radius:4px;padding:10px 16px;font-weight:600;width:100%}
+.btn:hover{background:#4752c4}.btn.sec{background:#4e5058}.btn.sec:hover{background:#6d6f78}.btn.danger{background:var(--red)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.field{width:100%;background:var(--dark);border:0;border-radius:4px;padding:10px;margin:6px 0;outline:none}
+.sep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.04em}
+.sep:before,.sep:after{content:"";flex:1;height:1px;background:#4e5058}
+details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:14px;text-align:center}
+#authErr{color:#ff8a8d;text-align:center;min-height:18px;margin-top:10px;font-size:13px}
+
+/* layout */
+#app{display:flex;height:100%}
+#side{width:240px;background:var(--side);display:flex;flex-direction:column;flex-shrink:0}
+.brand{height:48px;display:flex;align-items:center;padding:0 16px;font-weight:700;box-shadow:0 1px 0 #0003}
+.chlabel{padding:16px 8px 4px 16px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+#channels{padding:0 8px;flex:1;overflow:auto}
+.ch{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;border-radius:4px;color:var(--muted);text-align:left;margin-bottom:2px;font-weight:500}
+.ch:hover{background:var(--hover);color:var(--text)}.ch.active{background:#404249;color:#fff}.ch.unread{color:#fff;font-weight:700}
+.ch .hash{font-size:20px;opacity:.7;line-height:1}
+.badge{margin-left:auto;background:var(--red);color:#fff;border-radius:8px;font-size:11px;font-weight:700;padding:0 6px;min-width:16px;text-align:center}
+.me{height:52px;background:#232428;display:flex;align-items:center;gap:8px;padding:0 8px}
+.me .nm{font-weight:600;font-size:14px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me .st{font-size:11px;color:var(--muted)}
+.me .grow{flex:1;min-width:0}
+.iconbtn{width:32px;height:32px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:17px}
+.iconbtn:hover{background:#3d3f45;color:var(--text)}
+.av{width:40px;height:40px;border-radius:50%;background:#1e1f22;object-fit:cover;flex-shrink:0}
+.av.sm{width:32px;height:32px}
+
+main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+header{height:48px;display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;box-shadow:0 1px 0 #0003;flex-shrink:0}
+header .title{font-weight:700}
+header .grow{flex:1}
+#timer{font-size:12px;color:var(--muted);background:var(--dark);padding:4px 8px;border-radius:12px;white-space:nowrap}
+#timer.soon{color:var(--gold)}
+#menuBtn{display:none}
+#msgs{flex:1;overflow-y:auto;padding:12px 0 8px}
+.empty{padding:40px 20px;color:var(--muted);text-align:center}
+.msg{position:relative;padding:2px 48px 2px 72px;min-height:22px}
+.msg:not(.grp){margin-top:16px;padding-top:2px}
+.msg:hover{background:#2e3035}
+.msg.mention{background:rgba(250,166,26,.1);box-shadow:inset 2px 0 0 var(--gold)}
+.msg.mention:hover{background:rgba(250,166,26,.15)}
+.msg.pinned:before{content:"📌";position:absolute;right:8px;top:2px;font-size:12px;opacity:.6}
+.msg .avc{position:absolute;left:16px;top:4px;cursor:pointer}
+.msg .avc .av{width:40px;height:40px}
+.msg .gt{position:absolute;left:0;width:72px;text-align:center;font-size:10px;color:var(--muted);top:4px;opacity:0}
+.msg:hover .gt{opacity:1}
+.mh{display:flex;align-items:baseline;gap:8px}
+.un{font-weight:600;cursor:pointer}.un:hover{text-decoration:underline}
+.tag{background:var(--blurple);color:#fff;font-size:10px;font-weight:700;border-radius:3px;padding:1px 4px;align-self:center}
+.ts{font-size:11px;color:var(--muted)}
+.body{word-wrap:break-word;overflow-wrap:anywhere}
+.body a{color:#00a8fc}
+.mt{background:rgba(88,101,242,.3);color:#c9cdfb;border-radius:3px;padding:0 2px;font-weight:500}
+.mt.me{background:rgba(250,166,26,.25);color:#ffd9a0}
+.replyref{font-size:12.5px;color:var(--muted);margin-left:-32px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.replyref b{color:var(--text)}.replyref:hover{color:var(--text)}
+.att{position:relative;display:inline-block;margin-top:4px;max-width:min(420px,100%)}
+.att img{max-width:100%;max-height:340px;border-radius:6px;display:block;cursor:zoom-in;background:#1e1f22}
+.att .favbtn{position:absolute;top:6px;right:6px;background:#000a;border-radius:4px;width:30px;height:30px;font-size:16px;opacity:0;transition:.1s}
+.att:hover .favbtn,.favbtn.on{opacity:1}
+.file{display:inline-flex;gap:8px;align-items:center;background:var(--side);border:1px solid #1e1f22;border-radius:6px;padding:10px 14px;margin-top:4px;color:#00a8fc;text-decoration:none}
+.rxs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.rx{display:inline-flex;align-items:center;gap:5px;background:#2b2d31;border:1px solid transparent;border-radius:8px;padding:1px 7px;font-size:14px}
+.rx span{font-size:12px;font-weight:600;color:var(--muted)}
+.rx:hover{border-color:#6d6f78}
+.rx.mine{background:rgba(88,101,242,.25);border-color:var(--blurple)}.rx.mine span{color:#c9cdfb}
+.tools{position:absolute;right:16px;top:-14px;background:var(--bg);border:1px solid #1e1f22;border-radius:6px;display:none;box-shadow:0 2px 8px #0005;z-index:2}
+.msg:hover .tools{display:flex}
+.tools button{padding:4px 8px;font-size:15px}.tools button:hover{background:#3d3f45}
+
+#replyBar,#pendingBar{display:flex;align-items:center;gap:10px;background:#2b2d31;margin:0 16px;border-radius:8px 8px 0 0;padding:6px 12px;font-size:13px;color:var(--muted)}
+#replyBar b{color:var(--text)}
+#pendingBar img{height:44px;border-radius:4px}
+.x{margin-left:auto;font-size:16px;color:var(--muted)}.x:hover{color:var(--text)}
+#composer{display:flex;align-items:flex-end;gap:4px;background:var(--input);margin:0 16px 20px;border-radius:8px;padding:4px 6px;position:relative}
+#composer textarea{flex:1;background:none;border:0;outline:none;resize:none;padding:10px 6px;max-height:200px;line-height:1.35}
+#composer .iconbtn{width:38px;height:38px;font-size:20px;flex-shrink:0}
+#ac{position:absolute;left:44px;bottom:100%;background:#2b2d31;border-radius:6px;box-shadow:0 4px 16px #000a;min-width:240px;overflow:hidden;margin-bottom:6px;z-index:20}
+#ac div{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer}
+#ac div.sel,#ac div:hover{background:#404249}
+#members{width:240px;background:var(--side);padding:16px 8px;overflow:auto;flex-shrink:0}
+#members h4{margin:0 8px 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+.mem{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:4px;cursor:pointer;position:relative}
+.mem:hover{background:var(--hover)}.mem.off{opacity:.4}
+.mem .dot{position:absolute;left:30px;top:26px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--side)}
+.mem .mn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+
+.pop{position:absolute;background:#2b2d31;border-radius:8px;box-shadow:0 4px 20px #000b;z-index:30;padding:8px}
+#picker{display:grid;grid-template-columns:repeat(8,34px);gap:2px;position:fixed}
+#picker button{width:34px;height:34px;font-size:20px;border-radius:4px}#picker button:hover{background:#404249}
+#favPanel{right:16px;bottom:76px;width:min(380px,calc(100% - 32px));max-height:50%;overflow:auto}
+#favPanel .gr{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+#favPanel .fi{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:#1e1f22;cursor:pointer}
+#favPanel .fi img{width:100%;height:100%;object-fit:cover}
+#favPanel .fi .rm{position:absolute;top:3px;right:3px;background:#000b;border-radius:4px;width:22px;height:22px;font-size:12px;display:none}
+#favPanel .fi:hover .rm{display:block}
+#pinsPanel{right:16px;top:52px;width:min(380px,calc(100% - 32px));max-height:60%;overflow:auto}
+.pinitem{padding:8px;border-radius:6px;cursor:pointer;border-bottom:1px solid #1e1f22}.pinitem:hover{background:#35373c}
+.pinitem small{color:var(--muted)}
+#overlay{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+#modalBody{background:var(--bg);border-radius:8px;padding:24px;width:100%;max-width:420px;max-height:90%;overflow:auto}
+#modalBody h2{margin:0 0 12px}
+#modalBody .row{display:flex;gap:8px;margin-top:10px}
+#modalBody label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase}
+#lightbox{position:fixed;inset:0;background:#000d;display:flex;align-items:center;justify-content:center;z-index:60;cursor:zoom-out}
+#lightbox img{max-width:94%;max-height:94%;border-radius:6px}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#111214;color:#fff;padding:10px 16px;border-radius:6px;z-index:70;box-shadow:0 4px 16px #000a;font-size:14px}
+
+@media(max-width:900px){#members{position:absolute;right:0;top:48px;bottom:0;z-index:15;box-shadow:-4px 0 16px #0008;display:none}#app.show-members #members{display:block}}
+@media(max-width:700px){
+ #side{position:absolute;left:0;top:0;bottom:0;z-index:25;transform:translateX(-100%);transition:.2s;box-shadow:4px 0 16px #0008}
+ #app.show-side #side{transform:none}
+ #menuBtn{display:inline-flex}
+ .msg{padding:2px 16px 2px 64px}.msg .avc{left:10px}.msg .gt{width:64px}
+ #composer{margin:0 8px 12px}#replyBar,#pendingBar{margin:0 8px}
+}
+</style>
+</head>
+<body>
+
+<div id="auth" hidden>
+  <div class="card">
+    <h1>anon chat</h1>
+    <p class="sub">One chat. Two channels. Wiped every 5 minutes.</p>
+    <button class="btn" id="btnSignup">Create anonymous account</button>
+    <div class="sep">or</div>
+    <label style="font-size:12px;color:var(--muted)">Log in with your account key</label>
+    <input class="field" id="keyIn" placeholder="Paste your account key" autocomplete="off">
+    <button class="btn sec" id="btnKey">Log in with key</button>
+    <details>
+      <summary>Owner login</summary>
+      <input class="field" id="ownEmail" type="email" placeholder="Email" autocomplete="username">
+      <input class="field" id="ownPw" type="password" placeholder="Password" autocomplete="current-password">
+      <button class="btn sec" id="btnOwner">Log in as owner</button>
+    </details>
+    <div id="authErr"></div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <aside id="side">
+    <div class="brand">anon chat</div>
+    <div class="chlabel">TEXT CHANNELS</div>
+    <div id="channels"></div>
+    <div class="me" id="me"></div>
+  </aside>
+  <main id="mainEl">
+    <header>
+      <button class="iconbtn" id="menuBtn" title="Channels">☰</button>
+      <span class="title" id="chTitle"></span>
+      <span class="grow"></span>
+      <span id="timer" title="Chat history is wiped on every 5 minute mark"></span>
+      <button class="iconbtn" id="pinsBtn" title="Pinned messages">📌</button>
+      <button class="iconbtn" id="memBtn" title="Members">👥</button>
+    </header>
+    <div id="msgs"></div>
+    <div id="replyBar" hidden></div>
+    <div id="pendingBar" hidden></div>
+    <div id="composer">
+      <div id="ac" hidden></div>
+      <button class="iconbtn" id="attachBtn" title="Attach a file">＋</button>
+      <textarea id="input" rows="1" maxlength="2000" placeholder="Message"></textarea>
+      <button class="iconbtn" id="favBtn" title="Saved photos">⭐</button>
+      <button class="iconbtn" id="emojiBtn" title="Emoji">😀</button>
+      <button class="iconbtn" id="sendBtn" title="Send">➤</button>
+      <input type="file" id="fileIn" hidden>
+    </div>
+    <div class="pop" id="favPanel" hidden></div>
+    <div class="pop" id="pinsPanel" hidden></div>
+  </main>
+  <aside id="members"></aside>
+</div>
+
+<div id="picker" class="pop" hidden></div>
+<div id="overlay" hidden><div id="modalBody"></div></div>
+<div id="lightbox" hidden><img alt=""></div>
+<div id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SB_URL = 'https://byoicngamgtcfrqsechh.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2ljbmdhbWd0Y2ZycXNlY2hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU3MjcyNzgsImV4cCI6MjExMTMwMzI3OH0.5J0_fyjcWeik2xtro5or8P7KFeqlTljIek-73UFhQT8';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+const CHANNELS = ['general', 'random'];
+const WIPE_MS = 5 * 60 * 1000;
+const MAX_FILE = 10 * 1024 * 1024;
+const EMOJIS = ['😀','😂','🥹','😍','😎','🤔','😭','😡','👍','👎','👏','🙏','🔥','💯','❤️','💀','🎉','👀','✅','❌','😮','🤝','🫡','🥲','😴','🤣','🙌','💪','🤷','😅','🥳','😬'];
+const ADJ = ['Swift','Quiet','Brave','Sleepy','Cosmic','Fuzzy','Lucky','Mellow','Spicy','Witty','Gentle','Rapid','Sunny','Shadow','Neon','Jolly','Crimson','Silent','Wild','Frosty'];
+const ANI = ['Otter','Falcon','Panda','Koala','Fox','Lynx','Raven','Gecko','Moose','Heron','Badger','Newt','Tiger','Whale','Owl','Yak','Hare','Crab','Wolf','Finch'];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const avatarFor = seed => 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=' + encodeURIComponent(seed);
+const fmtTime = t => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+const colorFor = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 70% 72%)`; };
+
+const state = {
+  me: null, ownerId: null, isOwner: false,
+  profiles: new Map(), byName: new Map(),
+  messages: new Map(), reactions: new Map(),
+  channel: 'general', unread: {general: 0, random: 0}, mentionCount: 0,
+  favs: [], online: new Set(), pending: null, replyTo: null, lastWindow: null,
+};
+
+/* ---------- helpers ---------- */
+let toastT;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600);
+}
+function prof(id) {
+  return state.profiles.get(id) || {id, username: 'Unknown', avatar_url: avatarFor(id)};
+}
+function rebuildNames() {
+  state.byName = new Map();
+  state.profiles.forEach(p => state.byName.set(p.username.toLowerCase(), p));
+}
+async function ensureProfile(id) {
+  if (state.profiles.has(id)) return;
+  const {data} = await sb.from('profiles').select('*').eq('id', id).maybeSingle();
+  if (data) { state.profiles.set(id, data); rebuildNames(); renderMembers(); }
+}
+function mentionsMe(text) {
+  if (!text || !state.me) return false;
+  const me = prof(state.me.id).username;
+  return new RegExp('@' + me + '(?![A-Za-z0-9_])', 'i').test(text);
+}
+function formatContent(text) {
+  let h = esc(text);
+  h = h.replace(/(https?:\/\/[^\s<]+)/g, u => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
+  h = h.replace(/(^|[\s>(])@([A-Za-z0-9_]{2,24})(?![A-Za-z0-9_])/g, (full, pre, name) => {
+    const p = state.byName.get(name.toLowerCase());
+    if (!p) return full;
+    const me = p.id === state.me.id ? ' me' : '';
+    return `${pre}<span class="mt${me}">@${esc(p.username)}</span>`;
+  });
+  return h.replace(/\n/g, '<br>');
+}
+function pathFromUrl(url) {
+  const i = url.indexOf('/object/public/chat/');
+  return i < 0 ? null : decodeURIComponent(url.slice(i + '/object/public/chat/'.length));
+}
+const publicUrl = path => sb.storage.from('chat').getPublicUrl(path).data.publicUrl;
+const extOf = n => (n.split('.').pop() || 'bin').replace(/[^A-Za-z0-9]/g, '').slice(0, 8) || 'bin';
+
+/* ---------- auth ---------- */
+function authErr(m) { $('authErr').textContent = m || ''; }
+function showAuth() { $('auth').hidden = false; $('app').hidden = true; }
+const saveCreds = c => localStorage.setItem('anonchat_creds', JSON.stringify(c));
+const loadCreds = () => { try { return JSON.parse(localStorage.getItem('anonchat_creds')); } catch { return null; } };
+
+$('btnSignup').onclick = async () => {
+  authErr(''); $('btnSignup').disabled = true;
+  try {
+    const r = await fetch(SB_URL + '/functions/v1/signup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY},
+      body: '{}',
+    });
+    const c = await r.json();
+    if (!r.ok || c.error) throw new Error(c.error || 'Could not create account');
+    const {data, error} = await sb.auth.signInWithPassword({email: c.email, password: c.password});
+    if (error) throw error;
+    saveCreds(c);
+    start(data.user);
+  } catch (e) { authErr(e.message); }
+  $('btnSignup').disabled = false;
+};
+$('btnKey').onclick = async () => {
+  authErr('');
+  try {
+    const [email, password] = atob($('keyIn').value.trim()).split('|');
+    if (!email || !password) throw new Error('bad key');
+    const {data, error} = await sb.auth.signInWithPassword({email, password});
+    if (error) throw error;
+    saveCreds({email, password});
+    start(data.user);
+  } catch { authErr('That account key did not work.'); }
+};
+$('btnOwner').onclick = async () => {
+  authErr('');
+  const {data, error} = await sb.auth.signInWithPassword({email: $('ownEmail').value.trim(), password: $('ownPw').value});
+  if (error) return authErr(error.message);
+  localStorage.removeItem('anonchat_creds');
+  start(data.user);
+};
+
+async function boot() {
+  let {data: {session}} = await sb.auth.getSession();
+  if (!session) {
+    const c = loadCreds();
+    if (c) { const r = await sb.auth.signInWithPassword(c); session = r.data.session; }
+  }
+  if (session) start(session.user); else showAuth();
+}
+
+/* ---------- start ---------- */
+let started = false;
+async function start(user) {
+  if (started) return; started = true;
+  state.me = user;
+  $('auth').hidden = true; $('app').hidden = false;
+  const [{data: profs}, {data: oid}] = await Promise.all([
+    sb.from('profiles').select('*'), sb.rpc('owner_id'),
+  ]);
+  (profs || []).forEach(p => state.profiles.set(p.id, p));
+  rebuildNames();
+  state.ownerId = oid; state.isOwner = oid === user.id;
+  await Promise.all([loadMessages(), loadFavs()]);
+  renderAll();
+  subscribe();
+  tick(); setInterval(tick, 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) updateTitle(); });
+}
+
+async function loadMessages() {
+  const {data: ms} = await sb.from('messages').select('*').order('id', {ascending: false}).limit(400);
+  state.messages = new Map(); state.reactions = new Map();
+  (ms || []).forEach(m => state.messages.set(m.id, m));
+  const ids = (ms || []).map(m => m.id);
+  if (ids.length) {
+    const {data: rs} = await sb.from('reactions').select('*').in('message_id', ids);
+    (rs || []).forEach(addReaction);
+  }
+  for (const m of state.messages.values()) ensureProfile(m.user_id);
+}
+async function loadFavs() {
+  const {data} = await sb.from('favorites').select('*').order('created_at', {ascending: false});
+  state.favs = data || [];
+}
+
+/* ---------- realtime ---------- */
+function subscribe() {
+  sb.channel('db')
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'messages'}, onMsg)
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'reactions'}, onReact)
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'profiles'}, onProf)
+    .subscribe();
+  const pc = sb.channel('online', {config: {presence: {key: state.me.id}}});
+  pc.on('presence', {event: 'sync'}, () => {
+    state.online = new Set(Object.keys(pc.presenceState()));
+    renderMembers();
+  }).subscribe(async s => { if (s === 'SUBSCRIBED') await pc.track({t: Date.now()}); });
+}
+async function onMsg(p) {
+  if (p.eventType === 'INSERT') {
+    const m = p.new;
+    if (state.messages.has(m.id)) return;
+    await ensureProfile(m.user_id);
+    state.messages.set(m.id, m);
+    if (m.user_id !== state.me.id && (m.channel !== state.channel || document.hidden)) {
+      state.unread[m.channel]++;
+      if (mentionsMe(m.content)) state.mentionCount++;
+      renderChannels(); updateTitle();
+    }
+    if (m.channel === state.channel) renderMessages();
+  } else if (p.eventType === 'UPDATE') {
+    const old = state.messages.get(p.new.id);
+    if (old) state.messages.set(p.new.id, {...old, ...p.new});
+    renderMessages(); renderPins();
+  } else if (p.eventType === 'DELETE') {
+    state.messages.delete(p.old.id); state.reactions.delete(p.old.id);
+    renderMessages(); renderPins();
+  }
+}
+function addReaction(r) {
+  const list = state.reactions.get(r.message_id) || [];
+  if (!list.some(x => x.user_id === r.user_id && x.emoji === r.emoji)) list.push(r);
+  state.reactions.set(r.message_id, list);
+}
+function onReact(p) {
+  if (p.eventType === 'INSERT') addReaction(p.new);
+  else if (p.eventType === 'DELETE') {
+    const o = p.old, list = state.reactions.get(o.message_id);
+    if (list) state.reactions.set(o.message_id, list.filter(x => !(x.user_id === o.user_id && x.emoji === o.emoji)));
+  }
+  renderMessages();
+}
+function onProf(p) {
+  if (p.new && p.new.id) {
+    state.profiles.set(p.new.id, p.new); rebuildNames();
+    renderMe(); renderMembers(); renderMessages();
+  }
+}
+
+/* ---------- rendering ---------- */
+function renderAll() { renderChannels(); renderMe(); renderMembers(); renderMessages(true); renderReply(); renderPending(); }
+
+function renderChannels() {
+  $('channels').innerHTML = CHANNELS.map(c => {
+    const u = state.unread[c];
+    return `<button class="ch ${c === state.channel ? 'active' : ''} ${u ? 'unread' : ''}" data-ch="${c}">
+      <span class="hash">#</span>${c}${u ? `<span class="badge">${u}</span>` : ''}</button>`;
+  }).join('');
+  $('chTitle').textContent = '# ' + state.channel;
+  $('input').placeholder = 'Message #' + state.channel;
+}
+$('channels').onclick = e => {
+  const b = e.target.closest('[data-ch]'); if (!b) return;
+  state.channel = b.dataset.ch; state.unread[state.channel] = 0;
+  if (!state.unread.general && !state.unread.random) state.mentionCount = 0;
+  $('app').classList.remove('show-side');
+  state.replyTo = null; renderReply();
+  renderChannels(); renderMessages(true); renderPins(); updateTitle();
+};
+
+function renderMe() {
+  const p = prof(state.me.id);
+  $('me').innerHTML = `<img class="av sm" src="${esc(p.avatar_url)}" alt="">
+    <div class="grow"><div class="nm">${esc(p.username)}</div><div class="st">${state.isOwner ? 'owner' : 'anonymous'}</div></div>
+    <button class="iconbtn" id="gear" title="Settings">⚙</button>`;
+  $('gear').onclick = openSettings;
+}
+
+function renderMembers() {
+  const arr = [...state.profiles.values()];
+  const isOn = p => state.online.has(p.id) || p.id === state.me.id;
+  arr.sort((a, b) => (isOn(b) - isOn(a)) || a.username.localeCompare(b.username));
+  const online = arr.filter(isOn), offline = arr.filter(p => !isOn(p));
+  const row = (p, on) => `<div class="mem ${on ? '' : 'off'}" data-uid="${p.id}">
+    <img class="av sm" src="${esc(p.avatar_url)}" alt="">${on ? '<span class="dot"></span>' : ''}
+    <span class="mn" style="color:${colorFor(p.id)}">${esc(p.username)}</span>
+    ${p.id === state.ownerId ? '<span class="tag">OWNER</span>' : ''}</div>`;
+  $('members').innerHTML = `<h4>Online, ${online.length}</h4>${online.map(p => row(p, true)).join('')}
+    ${offline.length ? `<h4 style="margin-top:16px">Offline, ${offline.length}</h4>${offline.map(p => row(p, false)).join('')}` : ''}`;
+}
+$('members').onclick = e => { const m = e.target.closest('[data-uid]'); if (m) userClick(m.dataset.uid); };
+function userClick(uid) {
+  if (state.isOwner) return openEdit(uid);
+  const ta = $('input'); ta.value += (ta.value && !ta.value.endsWith(' ') ? ' ' : '') + '@' + prof(uid).username + ' ';
+  ta.focus(); autosize();
+}
+
+function msgHtml(m, group) {
+  const p = prof(m.user_id);
+  const reply = m.reply_to ? state.messages.get(m.reply_to) : null;
+  const canDel = m.user_id === state.me.id || state.isOwner;
+  let h = `<div class="msg ${group ? 'grp' : ''} ${mentionsMe(m.content) ? 'mention' : ''} ${m.pinned ? 'pinned' : ''}" data-id="${m.id}">`;
+  h += `<div class="tools">
+    <button data-act="addreact" data-id="${m.id}" title="React">😀</button>
+    <button data-act="reply" data-id="${m.id}" title="Reply">↩</button>
+    <button data-act="pin" data-id="${m.id}" title="${m.pinned ? 'Unpin' : 'Pin'}">📌</button>
+    ${canDel ? `<button data-act="del" data-id="${m.id}" title="Delete">🗑</button>` : ''}</div>`;
+  if (reply) {
+    const rp = prof(reply.user_id);
+    h += `<div class="replyref" data-act="jump" data-id="${reply.id}">↪ <b>${esc(rp.username)}</b> ${esc((reply.content || '[attachment]').slice(0, 80))}</div>`;
+  }
+  if (group) h += `<span class="gt">${fmtTime(m.created_at)}</span>`;
+  else {
+    h += `<div class="avc" data-act="user" data-uid="${p.id}"><img class="av" src="${esc(p.avatar_url)}" alt=""></div>
+      <div class="mh"><span class="un" data-act="user" data-uid="${p.id}" style="color:${colorFor(p.id)}">${esc(p.username)}</span>
+      ${p.id === state.ownerId ? '<span class="tag">OWNER</span>' : ''}<span class="ts">${fmtTime(m.created_at)}</span></div>`;
+  }
+  if (m.content) h += `<div class="body">${formatContent(m.content)}</div>`;
+  if (m.attachment_url) {
+    if ((m.attachment_type || '').startsWith('image/')) {
+      const fn = (pathFromUrl(m.attachment_url) || '').split('/').pop();
+      const isFav = state.favs.some(f => f.path.split('/').pop() === fn);
+      h += `<div class="att"><img src="${esc(m.attachment_url)}" alt="${esc(m.attachment_name)}" loading="lazy" data-act="lightbox" data-url="${esc(m.attachment_url)}">
+        <button class="favbtn ${isFav ? 'on' : ''}" data-act="fav" data-id="${m.id}" title="${isFav ? 'Remove from saved photos' : 'Save photo'}">${isFav ? '⭐' : '☆'}</button></div>`;
+    } else {
+      h += `<a class="file" href="${esc(m.attachment_url)}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.attachment_name || 'file')}</a>`;
+    }
+  }
+  const rs = state.reactions.get(m.id) || [];
+  if (rs.length) {
+    const g = new Map();
+    rs.forEach(r => { const e = g.get(r.emoji) || {n: 0, mine: false}; e.n++; if (r.user_id === state.me.id) e.mine = true; g.set(r.emoji, e); });
+    h += `<div class="rxs">${[...g].map(([em, v]) => `<button class="rx ${v.mine ? 'mine' : ''}" data-act="react" data-id="${m.id}" data-emoji="${esc(em)}">${esc(em)} <span>${v.n}</span></button>`).join('')}</div>`;
+  }
+  return h + '</div>';
+}
+
+function renderMessages(forceBottom) {
+  const box = $('msgs');
+  const near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+  const list = [...state.messages.values()].filter(m => m.channel === state.channel).sort((a, b) => a.id - b.id);
+  let html = '', prev = null;
+  if (!list.length) html = `<div class="empty">Welcome to #${state.channel}. It is quiet in here. Say something!<br>Everything is wiped every 5 minutes.</div>`;
+  for (const m of list) {
+    const grp = prev && prev.user_id === m.user_id && !m.reply_to && (new Date(m.created_at) - new Date(prev.created_at)) < 300000;
+    html += msgHtml(m, grp); prev = m;
+  }
+  box.innerHTML = html;
+  if (forceBottom || near) box.scrollTop = box.scrollHeight;
+}
+
+$('msgs').addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const act = t.dataset.act, id = +t.dataset.id;
+  if (act === 'react') toggleReaction(id, t.dataset.emoji);
+  else if (act === 'addreact') openPicker(t, em => toggleReaction(id, em));
+  else if (act === 'reply') { state.replyTo = id; renderReply(); $('input').focus(); }
+  else if (act === 'pin') sb.rpc('toggle_pin', {mid: id});
+  else if (act === 'del') sb.from('messages').delete().eq('id', id).then(() => { state.messages.delete(id); renderMessages(); });
+  else if (act === 'fav') toggleFav(id);
+  else if (act === 'lightbox') { $('lightbox').querySelector('img').src = t.dataset.url; $('lightbox').hidden = false; }
+  else if (act === 'jump') jumpTo(id);
+  else if (act === 'user') userClick(t.dataset.uid);
+});
+$('lightbox').onclick = () => $('lightbox').hidden = true;
+function jumpTo(id) {
+  const el = document.querySelector(`.msg[data-id="${id}"]`); if (!el) return;
+  el.scrollIntoView({block: 'center', behavior: 'smooth'});
+  el.style.background = '#404249'; setTimeout(() => el.style.background = '', 1200);
+}
+
+function renderReply() {
+  const bar = $('replyBar');
+  const m = state.replyTo && state.messages.get(state.replyTo);
+  if (!m) { state.replyTo = null; bar.hidden = true; return; }
+  bar.hidden = false;
+  bar.innerHTML = `Replying to <b>${esc(prof(m.user_id).username)}</b><button class="x" id="cancelReply">✕</button>`;
+  $('cancelReply').onclick = () => { state.replyTo = null; renderReply(); };
+}
+function renderPending() {
+  const bar = $('pendingBar'), p = state.pending;
+  if (!p) { bar.hidden = true; return; }
+  bar.hidden = false;
+  bar.innerHTML = `${p.url ? `<img src="${p.url}" alt="">` : '📎'} <span>${esc(p.file.name)}</span><button class="x" id="cancelPending">✕</button>`;
+  $('cancelPending').onclick = () => { state.pending = null; renderPending(); };
+}
+function renderPins() {
+  const panel = $('pinsPanel'); if (panel.hidden) return;
+  const pins = [...state.messages.values()].filter(m => m.channel === state.channel && m.pinned).sort((a, b) => b.id - a.id);
+  panel.innerHTML = `<b>Pinned in #${state.channel}</b>` + (pins.length ? pins.map(m => `<div class="pinitem" data-id="${m.id}">
+    <b style="color:${colorFor(m.user_id)}">${esc(prof(m.user_id).username)}</b> <small>${fmtTime(m.created_at)}</small><br>
+    ${esc((m.content || '[attachment]').slice(0, 140))}</div>`).join('') : '<div class="empty" style="padding:16px">No pinned messages.</div>');
+}
+$('pinsBtn').onclick = () => { closePanels('pinsPanel'); $('pinsPanel').hidden = !$('pinsPanel').hidden; renderPins(); };
+$('pinsPanel').onclick = e => { const i = e.target.closest('[data-id]'); if (i) { jumpTo(+i.dataset.id); $('pinsPanel').hidden = true; } };
+$('memBtn').onclick = () => $('app').classList.toggle('show-members');
+$('menuBtn').onclick = () => $('app').classList.toggle('show-side');
+function closePanels(except) { ['pinsPanel', 'favPanel'].forEach(id => { if (id !== except) $(id).hidden = true; }); }
+
+/* ---------- reactions & emoji ---------- */
+async function toggleReaction(mid, emoji) {
+  const me = state.me.id, list = state.reactions.get(mid) || [];
+  const mine = list.find(r => r.user_id === me && r.emoji === emoji);
+  if (mine) {
+    state.reactions.set(mid, list.filter(r => r !== mine)); renderMessages();
+    await sb.from('reactions').delete().match({message_id: mid, user_id: me, emoji});
+  } else {
+    addReaction({message_id: mid, user_id: me, emoji}); renderMessages();
+    const {error} = await sb.from('reactions').insert({message_id: mid, emoji});
+    if (error) toast('Could not react');
+  }
+}
+let pickerCb = null;
+function openPicker(anchor, cb) {
+  const pk = $('picker');
+  pk.innerHTML = EMOJIS.map(e => `<button data-e="${e}">${e}</button>`).join('');
+  pickerCb = cb; pk.hidden = false;
+  const r = anchor.getBoundingClientRect();
+  const w = 8 * 36 + 16, h = 4 * 36 + 16;
+  pk.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
+  pk.style.top = (r.top - h - 6 > 8 ? r.top - h - 6 : r.bottom + 6) + 'px';
+}
+$('picker').onclick = e => { const b = e.target.closest('[data-e]'); if (b && pickerCb) { pickerCb(b.dataset.e); $('picker').hidden = true; } };
+document.addEventListener('mousedown', e => {
+  if (!$('picker').hidden && !e.target.closest('#picker') && !e.target.closest('[data-act="addreact"]') && e.target.id !== 'emojiBtn') $('picker').hidden = true;
+});
+$('emojiBtn').onclick = e => {
+  openPicker(e.currentTarget, em => { const ta = $('input'); ta.setRangeText(em, ta.selectionStart, ta.selectionEnd, 'end'); ta.focus(); autosize(); });
+};
+
+/* ---------- composer ---------- */
+const ta = $('input');
+function autosize() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 200) + 'px'; }
+let ac = null;
+function hideAC() { ac = null; $('ac').hidden = true; }
+function renderAC() {
+  $('ac').hidden = false;
+  $('ac').innerHTML = ac.items.map((p, i) => `<div class="${i === ac.idx ? 'sel' : ''}" data-i="${i}"><img class="av sm" src="${esc(p.avatar_url)}" alt=""> ${esc(p.username)}</div>`).join('');
+}
+function updateAC() {
+  const pos = ta.selectionStart;
+  const m = /(^|\s)@([A-Za-z0-9_]*)$/.exec(ta.value.slice(0, pos));
+  if (!m) return hideAC();
+  const q = m[2].toLowerCase();
+  const items = [...state.profiles.values()].filter(p => p.username.toLowerCase().startsWith(q)).slice(0, 6);
+  if (!items.length) return hideAC();
+  ac = {items, idx: 0, start: pos - m[2].length - 1};
+  renderAC();
+}
+function pickAC(i) {
+  const p = ac.items[i], pos = ta.selectionStart;
+  ta.value = ta.value.slice(0, ac.start) + '@' + p.username + ' ' + ta.value.slice(pos);
+  const np = ac.start + p.username.length + 2;
+  ta.setSelectionRange(np, np); hideAC(); ta.focus();
+}
+$('ac').onmousedown = e => { e.preventDefault(); const d = e.target.closest('[data-i]'); if (d) pickAC(+d.dataset.i); };
+ta.addEventListener('input', () => { autosize(); updateAC(); });
+ta.addEventListener('keydown', e => {
+  if (ac) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); ac.idx = (ac.idx + 1) % ac.items.length; return renderAC(); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); ac.idx = (ac.idx - 1 + ac.items.length) % ac.items.length; return renderAC(); }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); return pickAC(ac.idx); }
+    if (e.key === 'Escape') return hideAC();
+  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+ta.addEventListener('paste', e => {
+  const f = [...(e.clipboardData?.files || [])][0];
+  if (f) { e.preventDefault(); setPending(f); }
+});
+$('attachBtn').onclick = () => $('fileIn').click();
+$('fileIn').onchange = e => { if (e.target.files[0]) setPending(e.target.files[0]); e.target.value = ''; };
+$('mainEl').addEventListener('dragover', e => e.preventDefault());
+$('mainEl').addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setPending(f); });
+function setPending(file) {
+  if (file.size > MAX_FILE) return toast('Files must be under 10 MB');
+  state.pending = {file, url: file.type.startsWith('image/') ? URL.createObjectURL(file) : null};
+  renderPending(); ta.focus();
+}
+
+let sending = false, lastSend = 0;
+async function send() {
+  const text = ta.value.trim();
+  if ((!text && !state.pending) || sending) return;
+  if (Date.now() - lastSend < 600) return;
+  sending = true; $('sendBtn').disabled = true;
+  try {
+    const row = {channel: state.channel, content: text, reply_to: state.replyTo || null};
+    if (state.pending) {
+      const f = state.pending.file, path = 'att/' + crypto.randomUUID() + '.' + extOf(f.name);
+      const {error} = await sb.storage.from('chat').upload(path, f, {contentType: f.type || 'application/octet-stream'});
+      if (error) throw error;
+      Object.assign(row, {attachment_url: publicUrl(path), attachment_name: f.name.slice(0, 100), attachment_type: f.type || 'application/octet-stream'});
+    }
+    const {data, error} = await sb.from('messages').insert(row).select().single();
+    if (error) throw error;
+    if (!state.messages.has(data.id)) state.messages.set(data.id, data);
+    ta.value = ''; autosize(); hideAC();
+    state.pending = null; state.replyTo = null; renderPending(); renderReply();
+    renderMessages(true); lastSend = Date.now();
+  } catch (e) { toast('Could not send: ' + (e.message || 'error')); }
+  sending = false; $('sendBtn').disabled = false; ta.focus();
+}
+$('sendBtn').onclick = send;
+
+/* ---------- favorites (saved photos) ---------- */
+async function toggleFav(mid) {
+  const m = state.messages.get(mid); if (!m || !m.attachment_url) return;
+  const src = pathFromUrl(m.attachment_url); if (!src) return;
+  const name = src.split('/').pop();
+  const existing = state.favs.find(f => f.path.split('/').pop() === name);
+  if (existing) { await removeFav(existing); toast('Removed from saved photos'); return; }
+  const dest = `fav/${state.me.id}/${name}`;
+  const {error} = await sb.storage.from('chat').copy(src, dest);
+  if (error && !/exist|duplicate/i.test(error.message)) return toast('Could not save photo');
+  await sb.from('favorites').upsert({path: dest, url: publicUrl(dest)});
+  await loadFavs(); renderMessages(); renderFavs(); toast('Saved to your photos');
+}
+async function removeFav(f) {
+  await sb.from('favorites').delete().eq('path', f.path);
+  await sb.storage.from('chat').remove([f.path]);
+  await loadFavs(); renderMessages(); renderFavs();
+}
+function renderFavs() {
+  const p = $('favPanel'); if (p.hidden) return;
+  p.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><b>Saved photos</b><span class="grow" style="flex:1"></span>
+    <button class="btn sec" id="favAdd" style="width:auto;padding:4px 10px;font-size:13px">Add photo</button></div>
+    ${state.favs.length ? `<div class="gr">${state.favs.map((f, i) => `<div class="fi" data-i="${i}"><img src="${esc(f.url)}" alt=""><button class="rm" data-rm="${i}" title="Remove">✕</button></div>`).join('')}</div>`
+      : '<div class="empty" style="padding:16px">Click the star on any photo in chat to save it here. Click a saved photo to resend it.</div>'}
+    <input type="file" id="favFile" accept="image/*" hidden>`;
+  $('favAdd').onclick = () => $('favFile').click();
+  $('favFile').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > MAX_FILE) return toast('Files must be under 10 MB');
+    const path = `fav/${state.me.id}/${crypto.randomUUID()}.${extOf(f.name)}`;
+    const {error} = await sb.storage.from('chat').upload(path, f, {contentType: f.type});
+    if (error) return toast('Upload failed');
+    await sb.from('favorites').upsert({path, url: publicUrl(path)});
+    await loadFavs(); renderFavs();
+  };
+}
+$('favBtn').onclick = () => { closePanels('favPanel'); $('favPanel').hidden = !$('favPanel').hidden; renderFavs(); };
+$('favPanel').onclick = async e => {
+  const rm = e.target.closest('[data-rm]');
+  if (rm) return removeFav(state.favs[+rm.dataset.rm]);
+  const it = e.target.closest('[data-i]'); if (!it) return;
+  const f = state.favs[+it.dataset.i];
+  const name = f.path.split('/').pop();
+  const type = {png: 'image/png', gif: 'image/gif', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg'}[extOf(name).toLowerCase()] || 'image/jpeg';
+  const {data, error} = await sb.from('messages').insert({channel: state.channel, content: '', attachment_url: f.url, attachment_name: name, attachment_type: type, reply_to: state.replyTo || null}).select().single();
+  if (error) return toast('Could not send');
+  if (!state.messages.has(data.id)) state.messages.set(data.id, data);
+  state.replyTo = null; renderReply();
+  $('favPanel').hidden = true; renderMessages(true);
+};
+
+/* ---------- 5 minute wipe ---------- */
+function tick() {
+  const now = Date.now();
+  const win = Math.floor(now / WIPE_MS);
+  const left = (win + 1) * WIPE_MS - now;
+  const s = Math.ceil(left / 1000);
+  const t = $('timer');
+  t.textContent = 'Chat clears in ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  t.classList.toggle('soon', s <= 30);
+  if (state.lastWindow !== null && state.lastWindow !== win) {
+    state.messages = new Map(); state.reactions = new Map();
+    state.unread = {general: 0, random: 0}; state.mentionCount = 0;
+    state.replyTo = null; renderReply(); renderChannels(); renderMessages(true); renderPins(); updateTitle();
+    toast('Chat history was cleared');
+    setTimeout(async () => { await loadMessages(); renderMessages(true); }, 3000);
+  }
+  state.lastWindow = win;
+}
+function updateTitle() {
+  document.title = state.mentionCount ? `(${state.mentionCount}) anon chat` : 'anon chat';
+}
+
+/* ---------- modals ---------- */
+function showModal(html) { $('modalBody').innerHTML = html; $('overlay').hidden = false; }
+function closeModal() { $('overlay').hidden = true; }
+$('overlay').addEventListener('mousedown', e => { if (e.target.id === 'overlay') closeModal(); });
+
+function openSettings() {
+  const c = loadCreds();
+  const key = c ? btoa(c.email + '|' + c.password) : '';
+  showModal(`<h2>Settings</h2>
+    <p style="color:var(--muted);margin-top:0">Names and profile pictures are random. Only the owner can change them. Chat history clears every 5 minutes.</p>
+    ${key ? `<label>Your account key</label>
+      <input class="field" id="keyOut" readonly value="${esc(key)}">
+      <div style="font-size:12px;color:var(--muted)">Save this key. It is the only way to log back into this account on another device or after logging out.</div>
+      <div class="row"><button class="btn sec" id="copyKey">Copy key</button></div>` : ''}
+    <div class="row"><button class="btn danger" id="logout">Log out</button><button class="btn sec" id="closeM">Close</button></div>`);
+  if (key) $('copyKey').onclick = () => { navigator.clipboard.writeText(key); toast('Key copied'); };
+  $('closeM').onclick = closeModal;
+  $('logout').onclick = async () => {
+    if (key && !confirm('Make sure you saved your account key. Without it you cannot get this account back. Log out?')) return;
+    localStorage.removeItem('anonchat_creds');
+    await sb.auth.signOut(); location.reload();
+  };
+}
+
+function openEdit(uid) {
+  const p = prof(uid);
+  let avatar = p.avatar_url;
+  showModal(`<h2>Edit profile</h2>
+    <div style="display:flex;align-items:center;gap:14px"><img id="edAv" class="av" style="width:72px;height:72px" src="${esc(avatar)}" alt="">
+      <div style="flex:1"><button class="btn sec" id="edRandAv" style="margin-bottom:6px">Randomize picture</button>
+      <button class="btn sec" id="edUpAv">Upload picture</button><input type="file" id="edFile" accept="image/*" hidden></div></div>
+    <div style="margin-top:14px"><label>Username</label>
+    <input class="field" id="edName" maxlength="24" value="${esc(p.username)}">
+    <div style="font-size:12px;color:var(--muted)">Letters, numbers and underscores, 2 to 24 characters.</div></div>
+    <div class="row"><button class="btn sec" id="edRandName">Randomize name</button></div>
+    <div id="edErr" style="color:#ff8a8d;font-size:13px;min-height:18px;margin-top:8px"></div>
+    <div class="row"><button class="btn" id="edSave">Save</button><button class="btn sec" id="edCancel">Cancel</button></div>`);
+  $('edRandAv').onclick = () => { avatar = avatarFor(crypto.randomUUID().slice(0, 8)); $('edAv').src = avatar; };
+  $('edRandName').onclick = () => { $('edName').value = pick(ADJ) + pick(ANI) + (1000 + Math.floor(Math.random() * 9000)); };
+  $('edUpAv').onclick = () => $('edFile').click();
+  $('edFile').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > MAX_FILE) return $('edErr').textContent = 'Files must be under 10 MB';
+    const path = 'pfp/' + crypto.randomUUID() + '.' + extOf(f.name);
+    const {error} = await sb.storage.from('chat').upload(path, f, {contentType: f.type});
+    if (error) return $('edErr').textContent = 'Upload failed';
+    avatar = publicUrl(path); $('edAv').src = avatar;
+  };
+  $('edCancel').onclick = closeModal;
+  $('edSave').onclick = async () => {
+    const name = $('edName').value.trim();
+    if (!/^[A-Za-z0-9_]{2,24}$/.test(name)) return $('edErr').textContent = 'Invalid username';
+    const {data, error} = await sb.from('profiles').update({username: name, avatar_url: avatar}).eq('id', uid).select();
+    if (error) return $('edErr').textContent = /duplicate|unique/i.test(error.message) ? 'That username is taken' : error.message;
+    if (!data.length) return $('edErr').textContent = 'Not allowed';
+    state.profiles.set(uid, data[0]); rebuildNames();
+    renderMe(); renderMembers(); renderMessages(); closeModal();
+  };
+}
+
+boot();
+</script>
+</body>
+</html>
