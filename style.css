@@ -289,3 +289,31 @@ header .grow{flex:1}
 .sl input::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:26px;border-radius:4px;background:#fff;box-shadow:0 2px 6px #0007;cursor:grab}
 .sl input::-moz-range-thumb{width:12px;height:26px;border:0;border-radius:4px;background:#fff;cursor:grab}
 .slab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:8px 2px 8px}
+
+/* lighter Discord-like popups */
+.pop{background:#2b2d31;border-color:#1e1f22}
+#ctx.sel{background:#2b2d31}
+#picker .es input,.ddb{background:#1e1f22}
+/* shift-held extras on the hover bar */
+.bar .xs{display:none}body.shift .bar .xs{display:inline-flex}.bar .xs.dg:hover{color:var(--red)}
+/* roomier menus */
+#modalBody{padding:32px}
+#modalBody h2{margin-bottom:6px;font-size:22px}
+#modalBody .sub2{margin-bottom:24px}
+#modalBody .row{margin-top:24px;gap:12px}
+#modalBody label.l{margin-bottom:6px}
+.field{margin:6px 0 18px}.ddb{margin:6px 0 18px}
+.polopt .field{margin:4px 0}
+.hint{margin:6px 0 16px}
+.sec{margin-top:28px;padding-top:24px}
+.setrow{padding:14px 0}
+.kv{margin-bottom:6px}
+.invites{gap:10px;margin-top:14px}.inv{padding:10px 12px}
+.ci{padding:9px 12px}.cs{margin:8px 4px}#ctx{padding:8px}
+#ctx.sel .ci{padding:12px 14px}
+#favPanel,#pinsPanel{padding:16px}
+.pinitem{padding:12px}
+.mem{padding:6px 10px}
+/* mobile polish */
+@supports(height:100dvh){html,body{height:100dvh}}
+@media(max-width:700px){input,textarea{font-size:16px}#modalBody{padding:24px}}
