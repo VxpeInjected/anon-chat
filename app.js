@@ -78,7 +78,7 @@ const state = {
   me: null, ownerId: null, realOwner: false, isOwner: false, ownerMode: localStorage.getItem('anonchat_mode') !== 'user',
   profiles: new Map(), byName: new Map(), categories: new Map(), channels: new Map(),
   messages: new Map(), reactions: new Map(), votes: new Map(), pins: [], invites: [],
-  settings: {show_owner_tag: true, wipe_minutes: 5},
+  settings: {show_owner_tag: true, wipe_minutes: 5, owner_user_mode: false, next_wipe_at: null},
   channel: 'general', unread: {}, mentionCount: 0,
   collapsed: new Set(JSON.parse(localStorage.getItem('anonchat_collapsed') || '[]')),
   favs: [], online: new Set(), pending: null, replyTo: null, lastKey: null,
@@ -103,12 +103,12 @@ function formatContent(text) {
   h = h.replace(/(https?:\/\/[^\s<]+)/g, u => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
   h = h.replace(/(^|[\s>(])@([A-Za-z0-9_]{2,24})(?![A-Za-z0-9_])/g, (full, pre, name) => {
     const p = state.byName.get(name.toLowerCase());
-    return p ? `${pre}<span class="mt${p.id === state.me.id ? ' me' : ''}">@${esc(p.username)}</span>` : full;
+    return p ? `${pre}<span class="mt${p.id === state.me.id ? ' self' : ''}">@${esc(p.username)}</span>` : full;
   });
   return h.replace(/\n/g, '<br>');
 }
 const curChannel = () => [...state.channels.values()].find(c => c.name === state.channel);
-const ownerTag = uid => (uid === state.ownerId && state.settings.show_owner_tag) ? `<span class="tag">${ic('crown')}OWNER</span>` : '';
+const ownerTag = uid => (uid === state.ownerId && state.settings.show_owner_tag && !state.settings.owner_user_mode) ? `<span class="tag">${ic('crown')}OWNER</span>` : '';
 const isPinned = id => state.pins.some(p => p.message_id === id);
 const copyText = t => { navigator.clipboard?.writeText(t); toast('Copied'); };
 function armButton(btn, label, run) {
@@ -185,7 +185,7 @@ let ctxItems = [];
 function showCtx(x, y, items, opts = {}) {
   closeOverlays(opts.inModal ? ['ctx', 'modal'] : 'ctx');
   ctxItems = items;
-  const el = $('ctx');
+  const el = $('ctx'); el.classList.toggle('sel', !!opts.select);
   el.innerHTML = items.map((it, i) => it === 'sep' ? '<div class="cs"></div>' :
     `<button class="ci ${it.danger ? 'dg' : ''} ${it.cls || ''}" data-i="${i}" ${it.disabled ? 'disabled' : ''}>${it.icon ? ic(it.icon) : it.svg ? svg(it.svg) : '<span class="ico"></span>'}<span>${esc(it.label)}</span>${it.checked ? ic('check', 'sm') : ''}${it.hint ? `<em>${esc(it.hint)}</em>` : ''}</button>`).join('');
   el.style.minWidth = (opts.minWidth || 190) + 'px'; el.style.left = '0px'; el.style.top = '0px';
@@ -209,7 +209,7 @@ function dropdown(id, options, value, onChange) {
   el.innerHTML = `<span>${esc(label())}</span>${ic('arrow')}`;
   el.onclick = () => {
     const r = el.getBoundingClientRect();
-    showCtx(r.left, r.bottom + 4, options.map(o => ({label: o.l, checked: String(o.v) === String(cur), onClick: () => { cur = o.v; el.firstElementChild.textContent = o.l; if (onChange) onChange(o.v); }})), {minWidth: r.width, inModal: true});
+    showCtx(r.left, r.bottom + 4, options.map(o => ({label: o.l, checked: String(o.v) === String(cur), onClick: () => { cur = o.v; el.firstElementChild.textContent = o.l; if (onChange) onChange(o.v); }})), {minWidth: r.width, inModal: true, select: true});
   };
   return {get: () => cur};
 }
@@ -287,6 +287,8 @@ async function start(user) {
   (chs.data || []).forEach(c => state.channels.set(c.id, c));
   (st.data || []).forEach(r => { if (r.key !== 'last_wipe_at') state.settings[r.key] = r.value; });
   state.pins = pins.data || [];
+  state.ownerMode = !state.settings.owner_user_mode;
+  try { const t0 = Date.now(); const {data: sn} = await sb.rpc('server_now'); if (sn) state.skew = new Date(sn).getTime() - (t0 + Date.now()) / 2; } catch {}
   rebuildNames();
   state.ownerId = oid.data; state.realOwner = oid.data === user.id; state.isOwner = state.realOwner && state.ownerMode;
   if (!state.profiles.has(user.id)) return kickedOut();
@@ -405,6 +407,7 @@ function onPin(p) {
 function onSettings(p) {
   if (!p.new || p.new.key === 'last_wipe_at') return;
   state.settings[p.new.key] = p.new.value;
+  if (p.new.key === 'owner_user_mode' && state.realOwner) { state.ownerMode = !p.new.value; applyMode(); }
   renderMembers(); renderMessages(); tick();
 }
 
@@ -552,20 +555,22 @@ $('memBtn').onclick = () => {
   else toggleDrawer('members');
 };
 $('menuBtn').onclick = () => toggleDrawer('side');
-(function () {
-  const rz = $('rz'), saved = +localStorage.getItem('anonchat_memw');
-  if (saved) document.documentElement.style.setProperty('--memw', saved + 'px');
-  rz.addEventListener('pointerdown', e => {
-    rz.setPointerCapture(e.pointerId); rz.classList.add('drag'); document.body.style.userSelect = 'none';
-    const mv = ev => document.documentElement.style.setProperty('--memw', Math.max(180, Math.min(420, innerWidth - ev.clientX)) + 'px');
+function makeResizer(el, varName, key, widthFrom) {
+  const saved = +localStorage.getItem(key);
+  if (saved) document.documentElement.style.setProperty(varName, saved + 'px');
+  el.addEventListener('pointerdown', e => {
+    el.setPointerCapture(e.pointerId); el.classList.add('drag'); document.body.style.userSelect = 'none';
+    const mv = ev => document.documentElement.style.setProperty(varName, Math.max(180, Math.min(420, widthFrom(ev))) + 'px');
     const up = () => {
-      rz.classList.remove('drag'); document.body.style.userSelect = '';
-      rz.removeEventListener('pointermove', mv); rz.removeEventListener('pointerup', up);
-      localStorage.setItem('anonchat_memw', parseInt(getComputedStyle(document.documentElement).getPropertyValue('--memw')));
+      el.classList.remove('drag'); document.body.style.userSelect = '';
+      el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up);
+      localStorage.setItem(key, parseInt(getComputedStyle(document.documentElement).getPropertyValue(varName)));
     };
-    rz.addEventListener('pointermove', mv); rz.addEventListener('pointerup', up);
+    el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up);
   });
-})();
+}
+makeResizer($('rz'), '--memw', 'anonchat_memw', ev => innerWidth - ev.clientX);
+makeResizer($('rzl'), '--sidew', 'anonchat_sidew', ev => ev.clientX);
 
 /* ---------- messages ---------- */
 const quickEmojis = () => { const f = JSON.parse(localStorage.getItem('anonchat_freq') || '[]'); return f.length >= 2 ? f.slice(0, 2) : ['👍', '😂']; };
@@ -950,16 +955,20 @@ $('favPanel').onclick = async e => {
 
 /* ---------- wipe timer (interval set by the owner) ---------- */
 function tick() {
-  const iv = (+state.settings.wipe_minutes || 5) * 60000, now = Date.now(), win = Math.floor(now / iv);
-  const s = Math.ceil(((win + 1) * iv - now) / 1000);
-  $('timerTxt').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-  $('timer').classList.toggle('soon', s <= 30);
-  if (state.lastKey && state.lastKey.iv === iv && state.lastKey.win !== win) {
+  const nxt = state.settings.next_wipe_at ? new Date(state.settings.next_wipe_at).getTime() : 0;
+  const left = nxt ? Math.max(0, Math.ceil((nxt - (Date.now() + (state.skew || 0))) / 1000)) : null;
+  $('timerTxt').textContent = left === null ? '--:--' : Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+  $('timer').classList.toggle('soon', left !== null && left <= 30);
+  if (left === 0 && state.clearedFor !== nxt) {
+    state.clearedFor = nxt;
     state.messages = new Map(); state.reactions = new Map(); state.votes = new Map(); state.unread = {}; state.mentionCount = 0; state.replyTo = null;
     renderReply(); renderChannels(); renderMessages(); updateTitle();
-    setTimeout(async () => { await loadMessages(); renderMessages(); }, 3000);
+    setTimeout(async () => { await loadSettings(); await loadMessages(); renderMessages(); }, 8000);
   }
-  state.lastKey = {iv, win};
+}
+async function loadSettings() {
+  const {data} = await sb.from('app_settings').select('*');
+  (data || []).forEach(r => { if (r.key !== 'last_wipe_at') state.settings[r.key] = r.value; });
 }
 function updateTitle() { document.title = state.mentionCount ? `(${state.mentionCount}) anon chat` : 'anon chat'; }
 
@@ -967,14 +976,14 @@ function updateTitle() { document.title = state.mentionCount ? `(${state.mention
 function applyMode() { state.isOwner = state.realOwner && state.ownerMode; renderChannels(); renderMe(); renderMembers(); renderMessages(); renderPins(); }
 function openSettings() {
   const own = state.realOwner, on = state.ownerMode;
-  const WIPE = [1, 2, 5, 10, 15, 30, 60];
+  const WIPE = [1, 2, 5, 10, 15, 30, 60], wi = Math.max(0, WIPE.indexOf(+state.settings.wipe_minutes)), wl = v => v === 1 ? '1 minute' : v + ' minutes';
   showModal(`<h2>${ic('settings')} Settings</h2><p class="sub2">Your account${own ? ' and chat controls' : ''}.</p>
     <div class="kv"><label class="l">Signed in as</label><div class="val">${esc(state.me.email || '')}</div></div>
     ${own ? `<div class="sec"><div class="sh">${ic('crown')} Owner tools</div>
       <div class="setrow"><div class="tx"><b>Account mode</b><small>Switch to User to see the chat the way members do.</small></div>
         <div class="seg ${on ? '' : 's'}" id="modeSeg"><span class="ind"></span><button data-m="owner" class="${on ? 'on' : ''}">Owner</button><button data-m="user" class="${on ? '' : 'on'}">User</button></div></div>
       ${on ? `<div class="setrow"><div class="tx"><b>Show OWNER tag</b><small>Controls whether everyone sees the tag next to your name.</small></div><button class="sw ${state.settings.show_owner_tag ? 'on' : ''}" id="swTag"></button></div>
-      <div class="setrow" style="display:block"><div class="tx"><b>Reset timer</b><small>How long before chat history is cleared.</small></div><button type="button" id="ddWipe"></button></div>
+      <div class="setrow" style="display:block"><div class="slv"><b>Reset timer</b><span id="slVal">${wl(WIPE[wi])}</span></div><div class="sl"><input type="range" id="slWipe" min="0" max="6" step="1" value="${wi}" style="--p:${wi / 6 * 100}%"></div><div class="slab">${WIPE.map(v => `<span>${v === 60 ? '1h' : v + 'm'}</span>`).join('')}</div><div class="hint" style="margin-bottom:0">A new length starts after the current countdown finishes.</div></div>
       <div class="setrow"><div class="tx"><b>Clear chat now</b><small>Wipes every message and upload immediately.</small></div><button class="btn danger sm" id="wipeNow">Clear</button></div>
       <div class="sec" style="margin-top:8px"><div class="sh">${ic('link')} Invite keys</div>
         <div class="hint">Each key works once. Give one to someone so they can create an account. A key shows as used here once it has been claimed.</div>
@@ -982,10 +991,12 @@ function openSettings() {
     <div class="row"><button class="btn danger" id="logout">Log out</button></div>`, {wide: true});
   $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
   if (!own) return;
-  $('modeSeg').onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; state.ownerMode = b.dataset.m === 'owner'; localStorage.setItem('anonchat_mode', state.ownerMode ? 'owner' : 'user'); applyMode(); openSettings(); };
+  $('modeSeg').onclick = async e => { const b = e.target.closest('[data-m]'); if (!b) return; state.ownerMode = b.dataset.m === 'owner'; state.settings.owner_user_mode = !state.ownerMode; applyMode(); openSettings(); await sb.from('app_settings').upsert({key: 'owner_user_mode', value: !state.ownerMode}); };
   if (!on) return;
   $('swTag').onclick = async () => { const v = !state.settings.show_owner_tag; state.settings.show_owner_tag = v; $('swTag').classList.toggle('on', v); renderMembers(); renderMessages(); await sb.from('app_settings').upsert({key: 'show_owner_tag', value: v}); };
-  dropdown('ddWipe', WIPE.map(v => ({v, l: v === 1 ? '1 minute' : v + ' minutes'})), state.settings.wipe_minutes, async v => { state.settings.wipe_minutes = v; tick(); const {error} = await sb.from('app_settings').upsert({key: 'wipe_minutes', value: +v}); if (error) toast('Could not change the timer'); });
+  const sl = $('slWipe');
+  sl.oninput = () => { const i = +sl.value; sl.style.setProperty('--p', i / 6 * 100 + '%'); $('slVal').textContent = wl(WIPE[i]); };
+  sl.onchange = async () => { const v = WIPE[+sl.value]; state.settings.wipe_minutes = v; const {error} = await sb.from('app_settings').upsert({key: 'wipe_minutes', value: v}); toast(error ? 'Could not change the timer' : 'Timer updated'); };
   armButton($('wipeNow'), 'Clear', async () => { const {error} = await sb.rpc('wipe_now'); toast(error ? 'Could not clear chat' : 'Chat cleared'); $('wipeNow').textContent = 'Clear'; });
   $('genKey').onclick = async () => {
     $('genKey').disabled = true; const {data, error} = await sb.rpc('create_invite_key'); $('genKey').disabled = false;
@@ -1012,7 +1023,7 @@ async function closeAccount(uid) {
   const {data: {session}} = await sb.auth.getSession();
   const r = await fetch(SB_URL + '/functions/v1/admin', {method: 'POST', headers: {'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + session.access_token}, body: JSON.stringify({action: 'delete_user', user_id: uid})});
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) return toast(j.error || 'Could not close that account');
+  if (!r.ok) return toast(j.error || ('Could not close that account (error ' + r.status + ')'));
   state.profiles.delete(uid); rebuildNames(); renderMembers(); renderMessages(); closeModal(); toast('Account closed');
 }
 function openEdit(uid) {
