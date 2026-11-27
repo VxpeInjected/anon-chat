@@ -297,7 +297,7 @@ async function start(user) {
   await Promise.all([loadMessages(), loadFavs()]);
   renderAll(); subscribe();
   tick(); setInterval(tick, 1000);
-  setInterval(async () => { const {data} = await sb.from('profiles').select('id').eq('id', state.me.id).maybeSingle(); if (!data) kickedOut(); }, 60000);
+  setInterval(syncProfiles, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) updateTitle(); });
 }
 async function loadMessages() {
@@ -311,6 +311,12 @@ async function loadMessages() {
   ]);
   (rs.data || []).forEach(addReaction); (vs.data || []).forEach(addVote);
   for (const m of state.messages.values()) ensureProfile(m.user_id);
+}
+async function syncProfiles() {
+  const {data, error} = await sb.from('profiles').select('*');
+  if (error || !data) return;
+  if (!data.some(p => p.id === state.me.id)) return kickedOut();
+  state.profiles = new Map(data.map(p => [p.id, p])); rebuildNames(); renderMembers();
 }
 async function loadFavs() { const {data} = await sb.from('favorites').select('*').order('created_at', {ascending: false}); state.favs = data || []; }
 
@@ -582,10 +588,16 @@ function pollHtml(m) {
       return `<button class="po ${mine ? 'mine' : ''}" data-act="vote" data-id="${m.id}" data-i="${i}"><span class="pb" style="width:${pct}%"></span><span class="pl">${mine ? ic('check', 'sm') : '<span class="rad"></span>'}${esc(o)}</span><span class="pc">${c} - ${pct}%</span></button>`;
     }).join('')}<div class="pt">${total} ${total === 1 ? 'vote' : 'votes'}</div></div>`;
 }
+function shiftBtns(m) {
+  const canDel = m.user_id === state.me.id || state.isOwner;
+  return (canDel ? `<button class="xs dg" data-act="delnow" data-id="${m.id}" data-tip="Delete">${svg('trash')}</button>` : '')
+    + (m.content ? `<button class="xs" data-act="copytext" data-id="${m.id}" data-tip="Copy Text">${ic('file')}</button>` : '')
+    + `<button class="xs" data-act="copyid" data-id="${m.id}" data-tip="Copy ID">${ic('id')}</button>`;
+}
 function msgHtml(m, group) {
   const p = prof(m.user_id), reply = m.reply_to ? state.messages.get(m.reply_to) : null, pinned = isPinned(m.id);
   let h = `<div class="msg ${group ? 'grp' : ''} ${reply ? 'hasreply' : ''} ${mentionsMe(m.content) ? 'mention' : ''}" data-id="${m.id}">`;
-  h += `<div class="bar">${quickEmojis().map(e => `<button data-keep data-act="react" data-id="${m.id}" data-emoji="${esc(e)}">${e}</button>`).join('')}
+  h += `<div class="bar">${shiftBtns(m)}${quickEmojis().map(e => `<button data-keep data-act="react" data-id="${m.id}" data-emoji="${esc(e)}">${e}</button>`).join('')}
     <button data-keep data-act="addreact" data-id="${m.id}" data-tip="Add Reaction">${ic('emoji')}</button>
     <button data-keep data-act="reply" data-id="${m.id}" data-tip="Reply">${svg('reply')}</button>
     ${state.isOwner ? `<button class="${pinned ? 'on' : ''}" data-act="pin" data-id="${m.id}" data-tip="${pinned ? 'Unpin' : 'Pin'}">${ic('pin')}</button>` : ''}
@@ -664,10 +676,19 @@ $('msgs').addEventListener('click', e => {
   else if (act === 'pin' && m) togglePin(m);
   else if (act === 'more' && m) { const r = t.getBoundingClientRect(); showCtx(r.right - 190, r.bottom + 4, msgMenu(m, r.left, r.bottom)); }
   else if (act === 'fav') toggleFav(id);
+  else if (act === 'delnow') delMsg(id);
+  else if (act === 'copytext' && m) copyText(m.content);
+  else if (act === 'copyid') copyText(String(id));
   else if (act === 'vote') vote(id, +t.dataset.i);
   else if (act === 'lightbox') { closeOverlays('lightbox'); $('lightbox').querySelector('img').src = t.dataset.url; $('lightbox').classList.add('open'); }
   else if (act === 'jump') jumpTo(id);
   else if (act === 'user') userClick(t.dataset.uid, e);
+});
+$('msgs').addEventListener('click', e => {
+  if (!matchMedia('(hover:none)').matches || e.target.closest('[data-act]')) return;
+  const msg = e.target.closest('.msg');
+  document.querySelectorAll('.msg.barhold').forEach(x => { if (x !== msg) x.classList.remove('barhold'); });
+  if (msg) msg.classList.toggle('barhold');
 });
 function jumpTo(id) {
   const el = document.querySelector(`.msg[data-id="${id}"]`); if (!el) return;
@@ -996,7 +1017,7 @@ function openSettings() {
   $('swTag').onclick = async () => { const v = !state.settings.show_owner_tag; state.settings.show_owner_tag = v; $('swTag').classList.toggle('on', v); renderMembers(); renderMessages(); await sb.from('app_settings').upsert({key: 'show_owner_tag', value: v}); };
   const sl = $('slWipe');
   sl.oninput = () => { const i = +sl.value; sl.style.setProperty('--p', i / 6 * 100 + '%'); $('slVal').textContent = wl(WIPE[i]); };
-  sl.onchange = async () => { const v = WIPE[+sl.value]; state.settings.wipe_minutes = v; const {error} = await sb.from('app_settings').upsert({key: 'wipe_minutes', value: v}); toast(error ? 'Could not change the timer' : 'Timer updated'); };
+  sl.onchange = async () => { const v = WIPE[+sl.value]; const {data, error} = await sb.rpc('set_wipe_minutes', {m: v}); if (error || data !== v) return toast('Could not change the timer'); state.settings.wipe_minutes = v; toast('Saved: ' + wl(v) + '. It starts after the current countdown.'); };
   armButton($('wipeNow'), 'Clear', async () => { const {error} = await sb.rpc('wipe_now'); toast(error ? 'Could not clear chat' : 'Chat cleared'); $('wipeNow').textContent = 'Clear'; });
   $('genKey').onclick = async () => {
     $('genKey').disabled = true; const {data, error} = await sb.rpc('create_invite_key'); $('genKey').disabled = false;
@@ -1024,7 +1045,7 @@ async function closeAccount(uid) {
   const r = await fetch(SB_URL + '/functions/v1/admin', {method: 'POST', headers: {'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + session.access_token}, body: JSON.stringify({action: 'delete_user', user_id: uid})});
   const j = await r.json().catch(() => ({}));
   if (!r.ok) return toast(j.error || ('Could not close that account (error ' + r.status + ')'));
-  state.profiles.delete(uid); rebuildNames(); renderMembers(); renderMessages(); closeModal(); toast('Account closed');
+  state.profiles.delete(uid); state.online.delete(uid); for (const [id, m] of state.messages) if (m.user_id === uid) state.messages.delete(id); rebuildNames(); renderMembers(); renderMessages(); closeModal(); toast('Account closed'); syncProfiles();
 }
 function openEdit(uid) {
   const p = prof(uid); let avatar = p.avatar_url;
@@ -1090,5 +1111,9 @@ document.addEventListener('contextmenu', e => {
   if (!items.length && s) items = [{label: 'Copy', icon: 'file', onClick: () => copyText(s)}];
   if (items.length) showCtx(x, y, items); else closeOverlays('none');
 });
+
+addEventListener('keydown', e => { if (e.key === 'Shift') document.body.classList.add('shift'); });
+addEventListener('keyup', e => { if (e.key === 'Shift') document.body.classList.remove('shift'); });
+addEventListener('blur', () => document.body.classList.remove('shift'));
 
 boot();
