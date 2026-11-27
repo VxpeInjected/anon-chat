@@ -6,133 +6,214 @@
 <title>anon chat</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
 <style>
-:root{--bg:#313338;--side:#2b2d31;--dark:#1e1f22;--input:#383a40;--text:#dbdee1;--muted:#949ba4;--blurple:#5865f2;--hover:#2e3035;--green:#23a559;--red:#f23f43;--gold:#faa61a}
+:root{--bg:#313338;--side:#2b2d31;--dark:#1e1f22;--input:#383a40;--text:#dbdee1;--muted:#949ba4;--blurple:#5865f2;--hover:#2e3035;--green:#23a559;--red:#f23f43;--gold:#faa61a;--ease:cubic-bezier(.2,.8,.2,1)}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--text);font:15px/1.4 "gg sans","Segoe UI",Helvetica,Arial,sans-serif;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:15px/1.4 "gg sans","Segoe UI",Helvetica,Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-input,textarea{font:inherit;color:var(--text)}
+input,textarea,select{font:inherit;color:var(--text)}
 [hidden]{display:none!important}
 ::-webkit-scrollbar{width:10px}::-webkit-scrollbar-thumb{background:#1a1b1e;border-radius:6px}::-webkit-scrollbar-track{background:transparent}
 
+/* icons */
+.ic{display:inline-block;width:20px;height:20px;flex-shrink:0;background:currentColor;-webkit-mask:var(--i) center/contain no-repeat;mask:var(--i) center/contain no-repeat;vertical-align:middle}
+.ic.lg{width:28px;height:28px}.ic.sm{width:16px;height:16px}
+.i-send{--i:url(assets/icons/SendMessage.webp)}.i-chat{--i:url(assets/icons/ChatIcon.webp)}.i-arrow{--i:url(assets/icons/ArrowLargeRightIcon.webp)}
+.i-book{--i:url(assets/icons/BookCheckIcon.webp)}.i-check{--i:url(assets/icons/CircleCheckIcon.webp)}.i-gift{--i:url(assets/icons/GiftIcon.webp)}
+.i-hammer{--i:url(assets/icons/HammerIcon.webp)}.i-hub{--i:url(assets/icons/HubIcon.webp)}.i-id{--i:url(assets/icons/IdIcon.webp)}
+.i-kbd{--i:url(assets/icons/KeyboardIcon.webp)}.i-staff{--i:url(assets/icons/StaffBadgeIcon.webp)}.i-timer{--i:url(assets/icons/TimerIcon.webp)}
+.i-x{--i:url(assets/icons/XXsmallBoldIcon.webp)}
+.sv{width:18px;height:18px;flex-shrink:0;vertical-align:middle}.sv.fill{fill:currentColor}
+
+/* animations */
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.pop{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(8px) scale(.97);transform-origin:bottom right;transition:opacity .16s ease,transform .2s var(--ease),visibility 0s .2s}
+.pop.open{opacity:1;visibility:visible;pointer-events:auto;transform:none;transition-delay:0s}
+
 /* auth */
 #auth{height:100%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 20%,#404eed 0,#232850 60%,#14162b 100%);padding:16px;overflow:auto}
-.card{background:var(--bg);border-radius:8px;padding:28px;width:100%;max-width:440px;box-shadow:0 8px 40px #0008}
+.card{background:var(--bg);border-radius:10px;padding:28px;width:100%;max-width:420px;box-shadow:0 8px 40px #0008;animation:slideUp .3s var(--ease)}
+.card .logo{display:flex;justify-content:center;margin-bottom:6px;color:var(--blurple)}
 .card h1{margin:0 0 4px;font-size:24px;text-align:center}
-.card p.sub{margin:0 0 20px;text-align:center;color:var(--muted)}
-.btn{background:var(--blurple);color:#fff;border-radius:4px;padding:10px 16px;font-weight:600;width:100%}
-.btn:hover{background:#4752c4}.btn.sec{background:#4e5058}.btn.sec:hover{background:#6d6f78}.btn.danger{background:var(--red)}
+.card p.sub{margin:0 0 18px;text-align:center;color:var(--muted)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--dark);border-radius:6px;padding:3px;position:relative;margin-bottom:14px}
+.tabs button{padding:8px;border-radius:4px;color:var(--muted);position:relative;z-index:1;transition:color .2s;font-weight:600}
+.tabs button.on{color:#fff}
+.tabs .ind{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);background:var(--blurple);border-radius:4px;transition:transform .25s var(--ease)}
+.tabs.s .ind{transform:translateX(100%)}
+.card form{animation:fadeIn .25s ease}
+.btn{background:var(--blurple);color:#fff;border-radius:4px;padding:10px 16px;font-weight:600;width:100%;display:inline-flex;gap:8px;align-items:center;justify-content:center;transition:background .15s,transform .1s,opacity .15s}
+.btn:hover{background:#4752c4}.btn:active{transform:scale(.98)}
+.btn.sec{background:#4e5058}.btn.sec:hover{background:#6d6f78}.btn.danger{background:var(--red)}.btn.danger:hover{background:#c93538}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.field{width:100%;background:var(--dark);border:0;border-radius:4px;padding:10px;margin:6px 0;outline:none}
-.sep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:18px 0 8px;text-transform:uppercase;letter-spacing:.04em}
-.sep:before,.sep:after{content:"";flex:1;height:1px;background:#4e5058}
-details summary{cursor:pointer;color:var(--muted);font-size:13px;margin-top:14px;text-align:center}
-#authErr{color:#ff8a8d;text-align:center;min-height:18px;margin-top:10px;font-size:13px}
+.field{width:100%;background:var(--dark);border:1px solid transparent;border-radius:4px;padding:10px;margin:4px 0 10px;outline:none;transition:border-color .15s}
+.field:focus{border-color:var(--blurple)}
+label.l{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+.err{color:#ff8a8d;font-size:13px;min-height:18px;margin:4px 0}
+.hint{font-size:12.5px;color:var(--muted);margin:4px 0 10px}
 
 /* layout */
-#app{display:flex;height:100%}
+#app{display:flex;height:100%;position:relative;animation:fadeIn .3s ease}
 #side{width:240px;background:var(--side);display:flex;flex-direction:column;flex-shrink:0}
-.brand{height:48px;display:flex;align-items:center;padding:0 16px;font-weight:700;box-shadow:0 1px 0 #0003}
-.chlabel{padding:16px 8px 4px 16px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em}
-#channels{padding:0 8px;flex:1;overflow:auto}
-.ch{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;border-radius:4px;color:var(--muted);text-align:left;margin-bottom:2px;font-weight:500}
-.ch:hover{background:var(--hover);color:var(--text)}.ch.active{background:#404249;color:#fff}.ch.unread{color:#fff;font-weight:700}
-.ch .hash{font-size:20px;opacity:.7;line-height:1}
-.badge{margin-left:auto;background:var(--red);color:#fff;border-radius:8px;font-size:11px;font-weight:700;padding:0 6px;min-width:16px;text-align:center}
+.brand{height:48px;display:flex;align-items:center;gap:8px;padding:0 16px;font-weight:700;box-shadow:0 1px 0 #0003}
+#channels{padding:8px 8px;flex:1;overflow:auto}
+.chrow{display:flex;align-items:center;position:relative}
+.ch{display:flex;align-items:center;gap:8px;flex:1;min-width:0;padding:6px 8px;border-radius:4px;color:var(--muted);text-align:left;margin-bottom:2px;font-weight:500;transition:background .15s,color .15s,transform .1s}
+.ch:hover{background:var(--hover);color:var(--text)}.ch:active{transform:scale(.98)}
+.ch.active{background:#404249;color:#fff}.ch.unread{color:#fff;font-weight:700}
+.ch .cn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch .ic{width:18px;height:18px;opacity:.8}
+.badge{margin-left:auto;background:var(--red);color:#fff;border-radius:8px;font-size:11px;font-weight:700;padding:0 6px;min-width:16px;text-align:center;animation:fadeIn .2s}
+.chedit,.catact button{width:24px;height:24px;border-radius:4px;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,background .15s,color .15s}
+.chedit{position:absolute;right:2px;top:3px}
+.chrow:hover .chedit,.cat:hover .catact button{opacity:1}
+.chedit:hover,.catact button:hover{background:#3d3f45;color:#fff}
+@media(hover:none){.chedit,.catact button{opacity:1}}
+.cathead{display:flex;align-items:center;margin-top:14px;padding-right:2px}
+.catbtn{display:flex;align-items:center;gap:2px;flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.02em;padding:2px 4px;border-radius:4px;transition:color .15s;text-align:left}
+.catbtn:hover{color:var(--text)}
+.catbtn .ic{width:14px;height:14px;transition:transform .22s var(--ease);transform:rotate(90deg)}
+.cat.col .catbtn .ic{transform:none}
+.catbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catbody{display:grid;grid-template-rows:1fr;transition:grid-template-rows .24s var(--ease);margin-top:4px}
+.cat.col .catbody{grid-template-rows:0fr}
+.catin{overflow:hidden;min-height:0}
+.ownbar{display:flex;gap:6px;margin-top:16px}
+.ownbar button{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;color:var(--muted);background:#232428;border-radius:4px;padding:6px;transition:background .15s,color .15s}
+.ownbar button:hover{background:#3d3f45;color:#fff}
 .me{height:52px;background:#232428;display:flex;align-items:center;gap:8px;padding:0 8px}
 .me .nm{font-weight:600;font-size:14px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .me .st{font-size:11px;color:var(--muted)}
 .me .grow{flex:1;min-width:0}
-.iconbtn{width:32px;height:32px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);font-size:17px}
-.iconbtn:hover{background:#3d3f45;color:var(--text)}
+.iconbtn{width:32px;height:32px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);transition:background .15s,color .15s,transform .1s;flex-shrink:0}
+.iconbtn:hover{background:#3d3f45;color:var(--text)}.iconbtn:active{transform:scale(.92)}
 .av{width:40px;height:40px;border-radius:50%;background:#1e1f22;object-fit:cover;flex-shrink:0}
 .av.sm{width:32px;height:32px}
 
 main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
 header{height:48px;display:flex;align-items:center;gap:8px;padding:0 12px 0 16px;box-shadow:0 1px 0 #0003;flex-shrink:0}
-header .title{font-weight:700}
+header .title{font-weight:700;display:flex;align-items:center;gap:8px;min-width:0}
+header .title .ic{opacity:.7}
 header .grow{flex:1}
-#timer{font-size:12px;color:var(--muted);background:var(--dark);padding:4px 8px;border-radius:12px;white-space:nowrap}
+#timer{font-size:12px;color:var(--muted);background:var(--dark);padding:4px 10px 4px 8px;border-radius:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;transition:color .3s}
+#timer .ic{width:14px;height:14px}
 #timer.soon{color:var(--gold)}
 #menuBtn{display:none}
-#msgs{flex:1;overflow-y:auto;padding:12px 0 8px}
-.empty{padding:40px 20px;color:var(--muted);text-align:center}
-.msg{position:relative;padding:2px 48px 2px 72px;min-height:22px}
-.msg:not(.grp){margin-top:16px;padding-top:2px}
+#msgs{flex:1;overflow-y:auto;padding:12px 0 8px;scroll-behavior:smooth}
+#msgs.swap{animation:fadeIn .18s ease}
+.empty{padding:40px 20px;color:var(--muted);text-align:center;animation:fadeIn .3s}
+.msg{position:relative;padding:2px 48px 2px 72px;min-height:22px;transition:background .15s}
+.msg.enter{animation:msgIn .26s var(--ease)}
+.msg:not(.grp){margin-top:16px}
 .msg:hover{background:#2e3035}
 .msg.mention{background:rgba(250,166,26,.1);box-shadow:inset 2px 0 0 var(--gold)}
 .msg.mention:hover{background:rgba(250,166,26,.15)}
-.msg.pinned:before{content:"📌";position:absolute;right:8px;top:2px;font-size:12px;opacity:.6}
+.msg.flash{background:#404249}
+.pinmark{position:absolute;right:10px;top:4px;opacity:.55;color:var(--gold)}.pinmark .ic{width:14px;height:14px}
 .msg .avc{position:absolute;left:16px;top:4px;cursor:pointer}
-.msg .avc .av{width:40px;height:40px}
-.msg .gt{position:absolute;left:0;width:72px;text-align:center;font-size:10px;color:var(--muted);top:4px;opacity:0}
+.msg .gt{position:absolute;left:0;width:72px;text-align:center;font-size:10px;color:var(--muted);top:4px;opacity:0;transition:opacity .15s}
 .msg:hover .gt{opacity:1}
 .mh{display:flex;align-items:baseline;gap:8px}
 .un{font-weight:600;cursor:pointer}.un:hover{text-decoration:underline}
-.tag{background:var(--blurple);color:#fff;font-size:10px;font-weight:700;border-radius:3px;padding:1px 4px;align-self:center}
+.tag{background:var(--blurple);color:#fff;font-size:10px;font-weight:700;border-radius:3px;padding:1px 5px 1px 3px;align-self:center;display:inline-flex;align-items:center;gap:2px}
+.tag .ic{width:11px;height:11px}
 .ts{font-size:11px;color:var(--muted)}
 .body{word-wrap:break-word;overflow-wrap:anywhere}
 .body a{color:#00a8fc}
 .mt{background:rgba(88,101,242,.3);color:#c9cdfb;border-radius:3px;padding:0 2px;font-weight:500}
 .mt.me{background:rgba(250,166,26,.25);color:#ffd9a0}
-.replyref{font-size:12.5px;color:var(--muted);margin-left:-32px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.replyref{font-size:12.5px;color:var(--muted);margin-left:-32px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s}
 .replyref b{color:var(--text)}.replyref:hover{color:var(--text)}
 .att{position:relative;display:inline-block;margin-top:4px;max-width:min(420px,100%)}
-.att img{max-width:100%;max-height:340px;border-radius:6px;display:block;cursor:zoom-in;background:#1e1f22}
-.att .favbtn{position:absolute;top:6px;right:6px;background:#000a;border-radius:4px;width:30px;height:30px;font-size:16px;opacity:0;transition:.1s}
-.att:hover .favbtn,.favbtn.on{opacity:1}
-.file{display:inline-flex;gap:8px;align-items:center;background:var(--side);border:1px solid #1e1f22;border-radius:6px;padding:10px 14px;margin-top:4px;color:#00a8fc;text-decoration:none}
+.att img{max-width:100%;max-height:340px;border-radius:6px;display:block;cursor:zoom-in;background:#1e1f22;transition:filter .15s}
+.att img:hover{filter:brightness(1.08)}
+.att .favbtn{position:absolute;top:6px;right:6px;background:#000a;border-radius:4px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s,transform .1s;color:#fff}
+.att:hover .favbtn,.favbtn.on{opacity:1}.favbtn:active{transform:scale(.9)}.favbtn.on{color:var(--gold)}
+.file{display:inline-flex;gap:8px;align-items:center;background:var(--side);border:1px solid #1e1f22;border-radius:6px;padding:10px 14px;margin-top:4px;color:#00a8fc;text-decoration:none;transition:background .15s}
+.file:hover{background:#35373c}
 .rxs{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
-.rx{display:inline-flex;align-items:center;gap:5px;background:#2b2d31;border:1px solid transparent;border-radius:8px;padding:1px 7px;font-size:14px}
+.rx{display:inline-flex;align-items:center;gap:5px;background:#2b2d31;border:1px solid transparent;border-radius:8px;padding:1px 7px;font-size:14px;transition:border-color .15s,background .15s,transform .1s}
 .rx span{font-size:12px;font-weight:600;color:var(--muted)}
-.rx:hover{border-color:#6d6f78}
+.rx:hover{border-color:#6d6f78}.rx:active{transform:scale(.94)}
 .rx.mine{background:rgba(88,101,242,.25);border-color:var(--blurple)}.rx.mine span{color:#c9cdfb}
-.tools{position:absolute;right:16px;top:-14px;background:var(--bg);border:1px solid #1e1f22;border-radius:6px;display:none;box-shadow:0 2px 8px #0005;z-index:2}
-.msg:hover .tools{display:flex}
-.tools button{padding:4px 8px;font-size:15px}.tools button:hover{background:#3d3f45}
+.tools{position:absolute;right:16px;top:-14px;background:var(--bg);border:1px solid #1e1f22;border-radius:6px;display:flex;box-shadow:0 2px 8px #0005;z-index:2;opacity:0;visibility:hidden;transform:translateY(3px);transition:opacity .12s,transform .15s var(--ease),visibility 0s .15s}
+.msg:hover .tools{opacity:1;visibility:visible;transform:none;transition-delay:0s}
+.tools button{padding:5px 8px;color:var(--muted);display:flex;transition:background .12s,color .12s}.tools button:hover{background:#3d3f45;color:#fff}
+.tools button.dg:hover{color:var(--red)}
 
-#replyBar,#pendingBar{display:flex;align-items:center;gap:10px;background:#2b2d31;margin:0 16px;border-radius:8px 8px 0 0;padding:6px 12px;font-size:13px;color:var(--muted)}
+#replyBar,#pendingBar{display:flex;align-items:center;gap:10px;background:#2b2d31;margin:0 16px;border-radius:8px 8px 0 0;padding:6px 12px;font-size:13px;color:var(--muted);animation:slideUp .16s var(--ease)}
 #replyBar b{color:var(--text)}
 #pendingBar img{height:44px;border-radius:4px}
-.x{margin-left:auto;font-size:16px;color:var(--muted)}.x:hover{color:var(--text)}
-#composer{display:flex;align-items:flex-end;gap:4px;background:var(--input);margin:0 16px 20px;border-radius:8px;padding:4px 6px;position:relative}
+.x{margin-left:auto;color:var(--muted);display:inline-flex;transition:color .15s}.x:hover{color:var(--text)}
+#composer{display:flex;align-items:flex-end;gap:2px;background:var(--input);margin:0 16px 20px;border-radius:8px;padding:4px 6px;position:relative}
 #composer textarea{flex:1;background:none;border:0;outline:none;resize:none;padding:10px 6px;max-height:200px;line-height:1.35}
-#composer .iconbtn{width:38px;height:38px;font-size:20px;flex-shrink:0}
-#ac{position:absolute;left:44px;bottom:100%;background:#2b2d31;border-radius:6px;box-shadow:0 4px 16px #000a;min-width:240px;overflow:hidden;margin-bottom:6px;z-index:20}
+#composer .iconbtn{width:38px;height:38px}
+#sendBtn{color:var(--muted)}#sendBtn.ready{color:#fff;background:var(--blurple)}#sendBtn.ready:hover{background:#4752c4}
+#sendBtn{transition:background .2s,color .2s,transform .1s}
+#ac{position:absolute;left:44px;bottom:100%;background:#2b2d31;border-radius:6px;box-shadow:0 4px 16px #000a;min-width:240px;overflow:hidden;margin-bottom:6px;z-index:20;animation:slideUp .12s}
 #ac div{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer}
 #ac div.sel,#ac div:hover{background:#404249}
 #members{width:240px;background:var(--side);padding:16px 8px;overflow:auto;flex-shrink:0}
 #members h4{margin:0 8px 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
-.mem{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:4px;cursor:pointer;position:relative}
+.mem{display:flex;align-items:center;gap:10px;padding:5px 8px;border-radius:4px;cursor:pointer;position:relative;transition:background .15s,opacity .2s}
 .mem:hover{background:var(--hover)}.mem.off{opacity:.4}
 .mem .dot{position:absolute;left:30px;top:26px;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--side)}
 .mem .mn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.mem .eid{margin-left:auto;opacity:0;color:var(--muted);transition:opacity .15s}.mem:hover .eid{opacity:1}
 
 .pop{position:absolute;background:#2b2d31;border-radius:8px;box-shadow:0 4px 20px #000b;z-index:30;padding:8px}
 #picker{display:grid;grid-template-columns:repeat(8,34px);gap:2px;position:fixed}
-#picker button{width:34px;height:34px;font-size:20px;border-radius:4px}#picker button:hover{background:#404249}
+#picker button{width:34px;height:34px;font-size:20px;border-radius:4px;transition:background .12s,transform .1s}#picker button:hover{background:#404249;transform:scale(1.12)}
 #favPanel{right:16px;bottom:76px;width:min(380px,calc(100% - 32px));max-height:50%;overflow:auto}
 #favPanel .gr{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
-#favPanel .fi{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:#1e1f22;cursor:pointer}
+#favPanel .fi{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;background:#1e1f22;cursor:pointer;transition:transform .15s var(--ease)}
+#favPanel .fi:hover{transform:scale(1.03)}
 #favPanel .fi img{width:100%;height:100%;object-fit:cover}
-#favPanel .fi .rm{position:absolute;top:3px;right:3px;background:#000b;border-radius:4px;width:22px;height:22px;font-size:12px;display:none}
-#favPanel .fi:hover .rm{display:block}
+#favPanel .fi .rm{position:absolute;top:3px;right:3px;background:#000b;border-radius:4px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+#favPanel .fi:hover .rm{opacity:1}
+@media(hover:none){#favPanel .fi .rm{opacity:1}}
 #pinsPanel{right:16px;top:52px;width:min(380px,calc(100% - 32px));max-height:60%;overflow:auto}
-.pinitem{padding:8px;border-radius:6px;cursor:pointer;border-bottom:1px solid #1e1f22}.pinitem:hover{background:#35373c}
+.pinitem{padding:8px;border-radius:6px;cursor:pointer;border-bottom:1px solid #1e1f22;transition:background .15s}.pinitem:hover{background:#35373c}
 .pinitem small{color:var(--muted)}
-#overlay{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
-#modalBody{background:var(--bg);border-radius:8px;padding:24px;width:100%;max-width:420px;max-height:90%;overflow:auto}
-#modalBody h2{margin:0 0 12px}
-#modalBody .row{display:flex;gap:8px;margin-top:10px}
-#modalBody label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase}
-#lightbox{position:fixed;inset:0;background:#000d;display:flex;align-items:center;justify-content:center;z-index:60;cursor:zoom-out}
-#lightbox img{max-width:94%;max-height:94%;border-radius:6px}
-#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#111214;color:#fff;padding:10px 16px;border-radius:6px;z-index:70;box-shadow:0 4px 16px #000a;font-size:14px}
+.ph{display:flex;align-items:center;gap:8px;font-weight:700}
+#overlay{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility 0s .2s}
+#overlay.open{opacity:1;visibility:visible;transition-delay:0s}
+#modalBody{background:var(--bg);border-radius:10px;padding:24px;width:100%;max-width:440px;max-height:90%;overflow:auto;position:relative;transform:translateY(12px) scale(.97);transition:transform .25s var(--ease)}
+#overlay.open #modalBody{transform:none}
+#modalBody h2{margin:0 0 12px;display:flex;align-items:center;gap:8px;font-size:20px}
+#modalBody .mx{position:absolute;right:12px;top:12px}
+#modalBody .row{display:flex;gap:8px;margin-top:12px}
+#modalBody p{margin:0 0 10px;color:var(--muted)}
+.sec{margin-top:18px;padding-top:14px;border-top:1px solid #3f4147}
+.sh{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:4px}
+.kv .val{background:var(--dark);border-radius:4px;padding:9px 10px;margin-top:4px;overflow-wrap:anywhere}
+.invites{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.inv{display:flex;align-items:center;gap:8px;background:var(--dark);border-radius:6px;padding:8px 10px;flex-wrap:wrap;animation:slideUp .2s var(--ease)}
+.inv code{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.04em;color:#fff}
+.inv .st{font-size:12.5px;color:var(--muted);display:inline-flex;align-items:center;gap:5px;margin-left:auto}
+.inv .st.ok{color:var(--green)}.inv .st small{color:var(--muted)}
+.inv.used code{text-decoration:line-through;opacity:.5}
+.mini{font-size:12px;background:#4e5058;border-radius:4px;padding:3px 8px;transition:background .15s}.mini:hover{background:#6d6f78}
+.inv .mini{margin-left:0}
+#lightbox{position:fixed;inset:0;background:#000d;display:flex;align-items:center;justify-content:center;z-index:60;cursor:zoom-out;opacity:0;visibility:hidden;transition:opacity .2s,visibility 0s .2s}
+#lightbox.open{opacity:1;visibility:visible;transition-delay:0s}
+#lightbox img{max-width:94%;max-height:94%;border-radius:6px;transform:scale(.96);transition:transform .25s var(--ease)}
+#lightbox.open img{transform:none}
+#toast{position:fixed;left:50%;bottom:90px;transform:translate(-50%,10px);background:#111214;color:#fff;padding:10px 16px;border-radius:6px;z-index:70;box-shadow:0 4px 16px #000a;font-size:14px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,transform .25s var(--ease),visibility 0s .25s}
+#toast.show{opacity:1;visibility:visible;transform:translate(-50%,0);transition-delay:0s}
+#scrim{position:fixed;inset:0;background:#0008;z-index:14;opacity:0;visibility:hidden;transition:opacity .2s,visibility 0s .2s;display:none}
 
-@media(max-width:900px){#members{position:absolute;right:0;top:48px;bottom:0;z-index:15;box-shadow:-4px 0 16px #0008;display:none}#app.show-members #members{display:block}}
+@media(max-width:900px){
+ #members{position:absolute;right:0;top:0;bottom:0;z-index:15;box-shadow:-4px 0 16px #0008;transform:translateX(105%);transition:transform .25s var(--ease)}
+ #app.show-members #members{transform:none}
+ #scrim{display:block}#app.show-members #scrim,#app.show-side #scrim{opacity:1;visibility:visible;transition-delay:0s}
+}
 @media(max-width:700px){
- #side{position:absolute;left:0;top:0;bottom:0;z-index:25;transform:translateX(-100%);transition:.2s;box-shadow:4px 0 16px #0008}
+ #side{position:absolute;left:0;top:0;bottom:0;z-index:25;transform:translateX(-105%);transition:transform .25s var(--ease);box-shadow:4px 0 16px #0008}
  #app.show-side #side{transform:none}
+ #scrim{z-index:20}#side{z-index:25}
  #menuBtn{display:inline-flex}
  .msg{padding:2px 16px 2px 64px}.msg .avc{left:10px}.msg .gt{width:64px}
  #composer{margin:0 8px 12px}#replyBar,#pendingBar{margin:0 8px}
@@ -143,68 +224,79 @@ header .grow{flex:1}
 
 <div id="auth" hidden>
   <div class="card">
+    <div class="logo"><i class="ic lg i-chat" style="width:40px;height:40px"></i></div>
     <h1>anon chat</h1>
-    <p class="sub">One chat. Two channels. Wiped every 5 minutes.</p>
-    <button class="btn" id="btnSignup">Create anonymous account</button>
-    <div class="sep">or</div>
-    <label style="font-size:12px;color:var(--muted)">Log in with your account key</label>
-    <input class="field" id="keyIn" placeholder="Paste your account key" autocomplete="off">
-    <button class="btn sec" id="btnKey">Log in with key</button>
-    <details>
-      <summary>Owner login</summary>
-      <input class="field" id="ownEmail" type="email" placeholder="Email" autocomplete="username">
-      <input class="field" id="ownPw" type="password" placeholder="Password" autocomplete="current-password">
-      <button class="btn sec" id="btnOwner">Log in as owner</button>
-    </details>
-    <div id="authErr"></div>
+    <p class="sub" id="authSub">Welcome back</p>
+    <div class="tabs" id="tabs"><span class="ind"></span><button type="button" id="tabLogin" class="on">Log in</button><button type="button" id="tabSignup">Sign up</button></div>
+
+    <form id="fLogin">
+      <label class="l">Email</label>
+      <input class="field" id="liEmail" type="email" autocomplete="username" required>
+      <label class="l">Password</label>
+      <input class="field" id="liPw" type="password" autocomplete="current-password" required>
+      <button class="btn" id="liBtn" type="submit">Log in</button>
+    </form>
+
+    <form id="fSignup" hidden>
+      <label class="l">Invite key</label>
+      <input class="field" id="suKey" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" required>
+      <label class="l">Email</label>
+      <input class="field" id="suEmail" type="email" autocomplete="email" required>
+      <label class="l">Password</label>
+      <input class="field" id="suPw" type="password" minlength="8" autocomplete="new-password" required>
+      <label class="l">Confirm password</label>
+      <input class="field" id="suPw2" type="password" minlength="8" autocomplete="new-password" required>
+      <div class="hint">You need an invite key from the owner to create an account.</div>
+      <button class="btn" id="suBtn" type="submit">Create account</button>
+    </form>
+    <div class="err" id="authErr"></div>
   </div>
 </div>
 
 <div id="app" hidden>
   <aside id="side">
-    <div class="brand">anon chat</div>
-    <div class="chlabel">TEXT CHANNELS</div>
+    <div class="brand"><i class="ic i-chat"></i> anon chat</div>
     <div id="channels"></div>
     <div class="me" id="me"></div>
   </aside>
+  <div id="scrim"></div>
   <main id="mainEl">
     <header>
-      <button class="iconbtn" id="menuBtn" title="Channels">☰</button>
+      <button class="iconbtn" id="menuBtn" title="Channels"><i class="ic i-chat"></i></button>
       <span class="title" id="chTitle"></span>
       <span class="grow"></span>
-      <span id="timer" title="Chat history is wiped on every 5 minute mark"></span>
-      <button class="iconbtn" id="pinsBtn" title="Pinned messages">📌</button>
-      <button class="iconbtn" id="memBtn" title="Members">👥</button>
+      <span id="timer"><i class="ic i-timer"></i><span id="timerTxt"></span></span>
+      <button class="iconbtn" id="pinsBtn" title="Pinned messages"><i class="ic i-book"></i></button>
+      <button class="iconbtn" id="memBtn" title="Members"><i class="ic i-hub"></i></button>
     </header>
     <div id="msgs"></div>
     <div id="replyBar" hidden></div>
     <div id="pendingBar" hidden></div>
     <div id="composer">
       <div id="ac" hidden></div>
-      <button class="iconbtn" id="attachBtn" title="Attach a file">＋</button>
+      <button class="iconbtn" id="attachBtn" title="Attach a file"></button>
       <textarea id="input" rows="1" maxlength="2000" placeholder="Message"></textarea>
-      <button class="iconbtn" id="favBtn" title="Saved photos">⭐</button>
-      <button class="iconbtn" id="emojiBtn" title="Emoji">😀</button>
-      <button class="iconbtn" id="sendBtn" title="Send">➤</button>
+      <button class="iconbtn" id="favBtn" title="Saved photos"></button>
+      <button class="iconbtn" id="emojiBtn" title="Emoji"><i class="ic i-kbd"></i></button>
+      <button class="iconbtn" id="sendBtn" title="Send"><i class="ic i-send"></i></button>
       <input type="file" id="fileIn" hidden>
     </div>
-    <div class="pop" id="favPanel" hidden></div>
-    <div class="pop" id="pinsPanel" hidden></div>
+    <div class="pop" id="favPanel"></div>
+    <div class="pop" id="pinsPanel"></div>
   </main>
   <aside id="members"></aside>
 </div>
 
-<div id="picker" class="pop" hidden></div>
-<div id="overlay" hidden><div id="modalBody"></div></div>
-<div id="lightbox" hidden><img alt=""></div>
-<div id="toast" hidden></div>
+<div id="picker" class="pop"></div>
+<div id="overlay"><div id="modalBody"></div></div>
+<div id="lightbox"><img alt=""></div>
+<div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 const SB_URL = 'https://byoicngamgtcfrqsechh.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2ljbmdhbWd0Y2ZycXNlY2hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU3MjcyNzgsImV4cCI6MjExMTMwMzI3OH0.5J0_fyjcWeik2xtro5or8P7KFeqlTljIek-73UFhQT8';
 const sb = supabase.createClient(SB_URL, SB_KEY);
-const CHANNELS = ['general', 'random'];
 const WIPE_MS = 5 * 60 * 1000;
 const MAX_FILE = 10 * 1024 * 1024;
 const EMOJIS = ['😀','😂','🥹','😍','😎','🤔','😭','😡','👍','👎','👏','🙏','🔥','💯','❤️','💀','🎉','👀','✅','❌','😮','🤝','🫡','🥲','😴','🤣','🙌','💪','🤷','😅','🥳','😬'];
@@ -217,28 +309,41 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const avatarFor = seed => 'https://api.dicebear.com/9.x/bottts-neutral/svg?seed=' + encodeURIComponent(seed);
 const fmtTime = t => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 const colorFor = id => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 70% 72%)`; };
+const byPos = (a, b) => (a.position - b.position) || (a.id - b.id);
+const slug = s => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32);
+
+const ic = (n, c = '') => `<i class="ic i-${n} ${c}"></i>`;
+const SV = {
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.2c.9 1.1 2 1.6 3.5 1.6s2.6-.5 3.5-1.6M9 9.5h.01M15 9.5h.01"/>',
+  reply: '<path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
+  pin: '<path d="M12 17v5M8 3h8l-1.2 7L18 13v2H6v-2l3.2-3z"/>',
+  pencil: '<path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+};
+const svg = (n, c = '') => `<svg class="sv ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SV[n]}</svg>`;
+$('attachBtn').innerHTML = svg('plus');
+$('favBtn').innerHTML = svg('star');
 
 const state = {
   me: null, ownerId: null, isOwner: false,
   profiles: new Map(), byName: new Map(),
-  messages: new Map(), reactions: new Map(),
-  channel: 'general', unread: {general: 0, random: 0}, mentionCount: 0,
+  categories: new Map(), channels: new Map(),
+  messages: new Map(), reactions: new Map(), invites: [],
+  channel: 'general', unread: {}, mentionCount: 0,
+  collapsed: new Set(JSON.parse(localStorage.getItem('anonchat_collapsed') || '[]')),
   favs: [], online: new Set(), pending: null, replyTo: null, lastWindow: null,
 };
 
 /* ---------- helpers ---------- */
 let toastT;
 function toast(msg) {
-  const t = $('toast'); t.textContent = msg; t.hidden = false;
-  clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600);
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
 }
-function prof(id) {
-  return state.profiles.get(id) || {id, username: 'Unknown', avatar_url: avatarFor(id)};
-}
-function rebuildNames() {
-  state.byName = new Map();
-  state.profiles.forEach(p => state.byName.set(p.username.toLowerCase(), p));
-}
+function prof(id) { return state.profiles.get(id) || {id, username: 'Unknown', avatar_url: avatarFor(id)}; }
+function rebuildNames() { state.byName = new Map(); state.profiles.forEach(p => state.byName.set(p.username.toLowerCase(), p)); }
 async function ensureProfile(id) {
   if (state.profiles.has(id)) return;
   const {data} = await sb.from('profiles').select('*').eq('id', id).maybeSingle();
@@ -246,17 +351,14 @@ async function ensureProfile(id) {
 }
 function mentionsMe(text) {
   if (!text || !state.me) return false;
-  const me = prof(state.me.id).username;
-  return new RegExp('@' + me + '(?![A-Za-z0-9_])', 'i').test(text);
+  return new RegExp('@' + prof(state.me.id).username + '(?![A-Za-z0-9_])', 'i').test(text);
 }
 function formatContent(text) {
   let h = esc(text);
   h = h.replace(/(https?:\/\/[^\s<]+)/g, u => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
   h = h.replace(/(^|[\s>(])@([A-Za-z0-9_]{2,24})(?![A-Za-z0-9_])/g, (full, pre, name) => {
     const p = state.byName.get(name.toLowerCase());
-    if (!p) return full;
-    const me = p.id === state.me.id ? ' me' : '';
-    return `${pre}<span class="mt${me}">@${esc(p.username)}</span>`;
+    return p ? `${pre}<span class="mt${p.id === state.me.id ? ' me' : ''}">@${esc(p.username)}</span>` : full;
   });
   return h.replace(/\n/g, '<br>');
 }
@@ -267,55 +369,118 @@ function pathFromUrl(url) {
 const publicUrl = path => sb.storage.from('chat').getPublicUrl(path).data.publicUrl;
 const extOf = n => (n.split('.').pop() || 'bin').replace(/[^A-Za-z0-9]/g, '').slice(0, 8) || 'bin';
 
+/* ---------- overlay manager: only one frame open at a time ---------- */
+const PANELS = ['pinsPanel', 'favPanel', 'picker'];
+let modalLock = false;
+function closeOverlays(except) {
+  PANELS.forEach(id => { if (id !== except) $(id).classList.remove('open'); });
+  if (except !== 'modal') closeModal();
+  if (except !== 'lightbox') $('lightbox').classList.remove('open');
+  if (except !== 'drawer') $('app').classList.remove('show-side', 'show-members');
+}
+function togglePanel(id) {
+  const el = $(id), was = el.classList.contains('open');
+  closeOverlays(was ? 'none' : id);
+  el.classList.toggle('open', !was);
+  return !was;
+}
+function toggleDrawer(which) {
+  const app = $('app'), cls = 'show-' + which, was = app.classList.contains(cls);
+  closeOverlays('none');
+  if (!was) app.classList.add(cls);
+}
+function showModal(html, opts = {}) {
+  closeOverlays('modal');
+  modalLock = !!opts.lock;
+  $('modalBody').innerHTML = (opts.lock ? '' : `<button class="iconbtn mx" id="mClose" title="Close">${ic('x')}</button>`) + html;
+  if (!opts.lock) $('mClose').onclick = () => closeModal();
+  $('overlay').classList.add('open');
+}
+function closeModal(force) {
+  if (modalLock && !force) return;
+  modalLock = false;
+  $('overlay').classList.remove('open');
+}
+$('overlay').addEventListener('mousedown', e => { if (e.target.id === 'overlay') closeModal(); });
+$('lightbox').onclick = () => $('lightbox').classList.remove('open');
+$('scrim').onclick = () => $('app').classList.remove('show-side', 'show-members');
+document.addEventListener('mousedown', e => {
+  if (e.target.closest('.pop,#pinsBtn,#favBtn,#emojiBtn,[data-act="addreact"]')) return;
+  PANELS.forEach(id => $(id).classList.remove('open'));
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const lb = $('lightbox');
+  if (lb.classList.contains('open')) return lb.classList.remove('open');
+  if ($('overlay').classList.contains('open')) return closeModal();
+  if (PANELS.some(id => $(id).classList.contains('open')) || $('app').classList.contains('show-side') || $('app').classList.contains('show-members')) closeOverlays('none');
+});
+
 /* ---------- auth ---------- */
 function authErr(m) { $('authErr').textContent = m || ''; }
 function showAuth() { $('auth').hidden = false; $('app').hidden = true; }
-const saveCreds = c => localStorage.setItem('anonchat_creds', JSON.stringify(c));
-const loadCreds = () => { try { return JSON.parse(localStorage.getItem('anonchat_creds')); } catch { return null; } };
+function setTab(signup) {
+  $('tabs').classList.toggle('s', signup);
+  $('tabLogin').classList.toggle('on', !signup); $('tabSignup').classList.toggle('on', signup);
+  $('fLogin').hidden = signup; $('fSignup').hidden = !signup;
+  $('authSub').textContent = signup ? 'Create an account with an invite key' : 'Welcome back';
+  authErr('');
+}
+$('tabLogin').onclick = () => setTab(false);
+$('tabSignup').onclick = () => setTab(true);
 
-$('btnSignup').onclick = async () => {
-  authErr(''); $('btnSignup').disabled = true;
+$('fLogin').onsubmit = async e => {
+  e.preventDefault(); authErr(''); $('liBtn').disabled = true;
+  const {data, error} = await sb.auth.signInWithPassword({email: $('liEmail').value.trim(), password: $('liPw').value});
+  $('liBtn').disabled = false;
+  if (error) return authErr(/invalid/i.test(error.message) ? 'Incorrect email or password.' : error.message);
+  start(data.user);
+};
+$('fSignup').onsubmit = async e => {
+  e.preventDefault(); authErr('');
+  const email = $('suEmail').value.trim(), pw = $('suPw').value;
+  if (pw !== $('suPw2').value) return authErr('Passwords do not match.');
+  $('suBtn').disabled = true;
   try {
     const r = await fetch(SB_URL + '/functions/v1/signup', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY},
-      body: '{}',
+      body: JSON.stringify({key: $('suKey').value.trim(), email, password: pw}),
     });
-    const c = await r.json();
-    if (!r.ok || c.error) throw new Error(c.error || 'Could not create account');
-    const {data, error} = await sb.auth.signInWithPassword({email: c.email, password: c.password});
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || 'Could not create account.');
+    const {data, error} = await sb.auth.signInWithPassword({email, password: pw});
     if (error) throw error;
-    saveCreds(c);
-    start(data.user);
-  } catch (e) { authErr(e.message); }
-  $('btnSignup').disabled = false;
-};
-$('btnKey').onclick = async () => {
-  authErr('');
-  try {
-    const [email, password] = atob($('keyIn').value.trim()).split('|');
-    if (!email || !password) throw new Error('bad key');
-    const {data, error} = await sb.auth.signInWithPassword({email, password});
-    if (error) throw error;
-    saveCreds({email, password});
-    start(data.user);
-  } catch { authErr('That account key did not work.'); }
-};
-$('btnOwner').onclick = async () => {
-  authErr('');
-  const {data, error} = await sb.auth.signInWithPassword({email: $('ownEmail').value.trim(), password: $('ownPw').value});
-  if (error) return authErr(error.message);
-  localStorage.removeItem('anonchat_creds');
-  start(data.user);
+    localStorage.setItem('anonchat_notice', data.user.id);
+    showNotice(data.user);
+  } catch (err) { authErr(err.message); }
+  $('suBtn').disabled = false;
 };
 
+/* notice shown after signing up, cannot be dismissed for 10 seconds */
+function showNotice(user) {
+  showModal(`<h2>${ic('timer')} Before you start</h2>
+    <p>Chat history is wiped every 5 minutes. Messages, reactions, pins and uploaded files all disappear on each 5 minute mark.</p>
+    <p>Use the star on a photo to save it, so you can still resend it later.</p>
+    <button class="btn" id="ackBtn" disabled>Got it (10)</button>`, {lock: true});
+  let n = 10;
+  const iv = setInterval(() => {
+    n--;
+    const b = $('ackBtn'); if (!b) return clearInterval(iv);
+    if (n > 0) b.textContent = `Got it (${n})`;
+    else { clearInterval(iv); b.textContent = 'Got it'; b.disabled = false; }
+  }, 1000);
+  $('ackBtn').onclick = () => {
+    localStorage.removeItem('anonchat_notice');
+    closeModal(true); start(user);
+  };
+}
+
 async function boot() {
-  let {data: {session}} = await sb.auth.getSession();
-  if (!session) {
-    const c = loadCreds();
-    if (c) { const r = await sb.auth.signInWithPassword(c); session = r.data.session; }
-  }
-  if (session) start(session.user); else showAuth();
+  const {data: {session}} = await sb.auth.getSession();
+  if (!session) return showAuth();
+  if (localStorage.getItem('anonchat_notice') === session.user.id) { $('auth').hidden = false; showNotice(session.user); }
+  else start(session.user);
 }
 
 /* ---------- start ---------- */
@@ -324,12 +489,17 @@ async function start(user) {
   if (started) return; started = true;
   state.me = user;
   $('auth').hidden = true; $('app').hidden = false;
-  const [{data: profs}, {data: oid}] = await Promise.all([
+  const [pr, oid, cats, chs] = await Promise.all([
     sb.from('profiles').select('*'), sb.rpc('owner_id'),
+    sb.from('categories').select('*'), sb.from('channels').select('*'),
   ]);
-  (profs || []).forEach(p => state.profiles.set(p.id, p));
+  (pr.data || []).forEach(p => state.profiles.set(p.id, p));
+  (cats.data || []).forEach(c => state.categories.set(c.id, c));
+  (chs.data || []).forEach(c => state.channels.set(c.id, c));
   rebuildNames();
-  state.ownerId = oid; state.isOwner = oid === user.id;
+  state.ownerId = oid.data; state.isOwner = oid.data === user.id;
+  const first = [...state.channels.values()].sort(byPos)[0];
+  if (first && ![...state.channels.values()].some(c => c.name === state.channel)) state.channel = first.name;
   await Promise.all([loadMessages(), loadFavs()]);
   renderAll();
   subscribe();
@@ -359,12 +529,13 @@ function subscribe() {
     .on('postgres_changes', {event: '*', schema: 'public', table: 'messages'}, onMsg)
     .on('postgres_changes', {event: '*', schema: 'public', table: 'reactions'}, onReact)
     .on('postgres_changes', {event: '*', schema: 'public', table: 'profiles'}, onProf)
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'channels'}, onChannel)
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'categories'}, onCategory)
+    .on('postgres_changes', {event: '*', schema: 'public', table: 'invite_keys'}, onInvite)
     .subscribe();
   const pc = sb.channel('online', {config: {presence: {key: state.me.id}}});
-  pc.on('presence', {event: 'sync'}, () => {
-    state.online = new Set(Object.keys(pc.presenceState()));
-    renderMembers();
-  }).subscribe(async s => { if (s === 'SUBSCRIBED') await pc.track({t: Date.now()}); });
+  pc.on('presence', {event: 'sync'}, () => { state.online = new Set(Object.keys(pc.presenceState())); renderMembers(); })
+    .subscribe(async s => { if (s === 'SUBSCRIBED') await pc.track({t: Date.now()}); });
 }
 async function onMsg(p) {
   if (p.eventType === 'INSERT') {
@@ -373,7 +544,7 @@ async function onMsg(p) {
     await ensureProfile(m.user_id);
     state.messages.set(m.id, m);
     if (m.user_id !== state.me.id && (m.channel !== state.channel || document.hidden)) {
-      state.unread[m.channel]++;
+      state.unread[m.channel] = (state.unread[m.channel] || 0) + 1;
       if (mentionsMe(m.content)) state.mentionCount++;
       renderChannels(); updateTitle();
     }
@@ -403,39 +574,188 @@ function onReact(p) {
 function onProf(p) {
   if (p.new && p.new.id) {
     state.profiles.set(p.new.id, p.new); rebuildNames();
-    renderMe(); renderMembers(); renderMessages();
+    renderMe(); renderMembers(); renderMessages(); renderInvites();
   }
 }
+function onChannel(p) {
+  if (p.eventType === 'DELETE') {
+    const prev = state.channels.get(p.old.id); if (!prev) return;
+    state.channels.delete(p.old.id);
+    for (const [id, m] of state.messages) if (m.channel === prev.name) state.messages.delete(id);
+    if (state.channel === prev.name) { const f = [...state.channels.values()].sort(byPos)[0]; if (f) selectChannel(f.name); }
+  } else {
+    const prev = state.channels.get(p.new.id);
+    if (prev && prev.name !== p.new.name) {
+      for (const m of state.messages.values()) if (m.channel === prev.name) m.channel = p.new.name;
+      if (state.unread[prev.name]) { state.unread[p.new.name] = state.unread[prev.name]; delete state.unread[prev.name]; }
+      if (state.channel === prev.name) state.channel = p.new.name;
+    }
+    state.channels.set(p.new.id, p.new);
+  }
+  renderChannels(); renderTitle(); renderMessages();
+}
+function onCategory(p) {
+  if (p.eventType === 'DELETE') {
+    state.categories.delete(p.old.id);
+    for (const c of state.channels.values()) if (c.category_id === p.old.id) c.category_id = null;
+  } else state.categories.set(p.new.id, p.new);
+  renderChannels();
+}
+function onInvite(p) {
+  if (!state.isOwner) return;
+  if (p.eventType === 'INSERT') { if (!state.invites.some(k => k.id === p.new.id)) state.invites.unshift(p.new); }
+  else if (p.eventType === 'UPDATE') {
+    const prev = state.invites.find(k => k.id === p.new.id);
+    state.invites = state.invites.map(k => k.id === p.new.id ? p.new : k);
+    if (p.new.used_at && !(prev && prev.used_at)) toast('An invite key was just used');
+  } else if (p.eventType === 'DELETE') state.invites = state.invites.filter(k => k.id !== p.old.id);
+  renderInvites();
+}
 
-/* ---------- rendering ---------- */
-function renderAll() { renderChannels(); renderMe(); renderMembers(); renderMessages(true); renderReply(); renderPending(); }
+/* ---------- sidebar: categories and channels ---------- */
+function renderAll() { renderChannels(); renderTitle(); renderMe(); renderMembers(); renderMessages('reset'); renderReply(); renderPending(); updateSend(); }
 
+function chRow(c) {
+  const u = state.unread[c.name] || 0;
+  return `<div class="chrow"><button class="ch ${c.name === state.channel ? 'active' : ''} ${u ? 'unread' : ''}" data-ch="${esc(c.name)}">${ic('chat')}<span class="cn">${esc(c.name)}</span>${u ? `<span class="badge">${u}</span>` : ''}</button>
+    ${state.isOwner ? `<button class="chedit" data-act="editch" data-id="${c.id}" title="Edit channel">${svg('pencil')}</button>` : ''}</div>`;
+}
 function renderChannels() {
-  $('channels').innerHTML = CHANNELS.map(c => {
-    const u = state.unread[c];
-    return `<button class="ch ${c === state.channel ? 'active' : ''} ${u ? 'unread' : ''}" data-ch="${c}">
-      <span class="hash">#</span>${c}${u ? `<span class="badge">${u}</span>` : ''}</button>`;
-  }).join('');
-  $('chTitle').textContent = '# ' + state.channel;
+  const cats = [...state.categories.values()].sort(byPos);
+  const chs = [...state.channels.values()].sort(byPos);
+  const loose = chs.filter(c => !c.category_id || !state.categories.has(c.category_id));
+  let h = loose.map(chRow).join('');
+  for (const cat of cats) {
+    const list = chs.filter(c => c.category_id === cat.id);
+    h += `<div class="cat ${state.collapsed.has(cat.id) ? 'col' : ''}" data-cat="${cat.id}">
+      <div class="cathead"><button class="catbtn" data-act="togglecat" data-id="${cat.id}">${ic('arrow')}<span>${esc(cat.name)}</span></button>
+        ${state.isOwner ? `<span class="catact"><button data-act="addch" data-id="${cat.id}" title="Create channel">${svg('plus')}</button><button data-act="editcat" data-id="${cat.id}" title="Edit category">${svg('pencil')}</button></span>` : ''}</div>
+      <div class="catbody"><div class="catin">${list.map(chRow).join('')}</div></div></div>`;
+  }
+  if (state.isOwner) h += `<div class="ownbar"><button data-act="addcat">${svg('plus')} Category</button><button data-act="addch" data-id="">${svg('plus')} Channel</button></div>`;
+  $('channels').innerHTML = h;
+}
+function renderTitle() {
+  $('chTitle').innerHTML = `${ic('chat')}<span>${esc(state.channel)}</span>`;
   $('input').placeholder = 'Message #' + state.channel;
 }
-$('channels').onclick = e => {
-  const b = e.target.closest('[data-ch]'); if (!b) return;
-  state.channel = b.dataset.ch; state.unread[state.channel] = 0;
-  if (!state.unread.general && !state.unread.random) state.mentionCount = 0;
-  $('app').classList.remove('show-side');
+function selectChannel(name) {
+  if (name === state.channel && $('msgs').dataset.ch === name) return;
+  state.channel = name; state.unread[name] = 0;
+  if (!Object.values(state.unread).some(Boolean)) state.mentionCount = 0;
   state.replyTo = null; renderReply();
-  renderChannels(); renderMessages(true); renderPins(); updateTitle();
-};
+  document.querySelectorAll('.ch').forEach(b => {
+    b.classList.toggle('active', b.dataset.ch === name);
+    if (b.dataset.ch === name) { b.classList.remove('unread'); const bd = b.querySelector('.badge'); if (bd) bd.remove(); }
+  });
+  renderTitle(); renderMessages('reset'); renderPins(); updateTitle();
+  closeOverlays('none');
+}
+$('channels').addEventListener('click', e => {
+  const t = e.target.closest('[data-ch],[data-act]'); if (!t) return;
+  if (t.dataset.ch) return selectChannel(t.dataset.ch);
+  const act = t.dataset.act, id = t.dataset.id ? +t.dataset.id : null;
+  if (act === 'togglecat') {
+    const el = t.closest('.cat'); el.classList.toggle('col');
+    if (el.classList.contains('col')) state.collapsed.add(id); else state.collapsed.delete(id);
+    localStorage.setItem('anonchat_collapsed', JSON.stringify([...state.collapsed]));
+  } else if (act === 'addch') openChannelModal(null, id);
+  else if (act === 'editch') openChannelModal(id);
+  else if (act === 'addcat') openCategoryModal();
+  else if (act === 'editcat') openCategoryModal(id);
+});
 
+function catOptions(sel) {
+  return `<option value="">No category</option>` + [...state.categories.values()].sort(byPos)
+    .map(c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+}
+function confirmDelete(btn, run) {
+  let armed = false;
+  btn.onclick = () => {
+    if (!armed) { armed = true; btn.textContent = 'Click again to confirm'; setTimeout(() => { armed = false; btn.textContent = 'Delete'; }, 3500); return; }
+    run();
+  };
+}
+function openChannelModal(id, catId) {
+  const ch = id ? state.channels.get(id) : null;
+  showModal(`<h2>${ic('chat')} ${ch ? 'Edit channel' : 'Create channel'}</h2>
+    <label class="l">Channel name</label>
+    <input class="field" id="chName" maxlength="32" placeholder="new-channel" value="${esc(ch ? ch.name : '')}" autocomplete="off">
+    <label class="l">Category</label>
+    <select class="field" id="chCat">${catOptions(ch ? ch.category_id : catId)}</select>
+    <div class="err" id="mErr"></div>
+    <div class="row"><button class="btn" id="mSave">${ch ? 'Save' : 'Create'}</button>${ch ? '<button class="btn danger" id="mDel">Delete</button>' : ''}</div>`);
+  $('chName').focus();
+  const save = async () => {
+    const name = slug($('chName').value);
+    if (!name) return $('mErr').textContent = 'Enter a channel name (letters, numbers, dashes).';
+    const category_id = $('chCat').value ? +$('chCat').value : null;
+    $('mSave').disabled = true;
+    let res;
+    if (ch) res = await sb.from('channels').update({name, category_id}).eq('id', ch.id).select();
+    else {
+      const position = Math.max(0, ...[...state.channels.values()].map(c => c.position)) + 1;
+      res = await sb.from('channels').insert({name, category_id, position}).select();
+    }
+    $('mSave').disabled = false;
+    if (res.error) return $('mErr').textContent = /duplicate|unique/i.test(res.error.message) ? 'A channel with that name already exists.' : res.error.message;
+    if (!res.data || !res.data.length) return $('mErr').textContent = 'Not allowed.';
+    const row = res.data[0];
+    onChannel({eventType: ch ? 'UPDATE' : 'INSERT', new: row});
+    closeModal();
+    if (!ch) selectChannel(row.name);
+  };
+  $('mSave').onclick = save;
+  $('chName').onkeydown = e => { if (e.key === 'Enter') save(); };
+  if (ch) confirmDelete($('mDel'), async () => {
+    if (state.channels.size <= 1) return $('mErr').textContent = 'You need at least one channel.';
+    const {error} = await sb.from('channels').delete().eq('id', ch.id);
+    if (error) return $('mErr').textContent = error.message;
+    onChannel({eventType: 'DELETE', old: {id: ch.id}}); closeModal();
+  });
+}
+function openCategoryModal(id) {
+  const cat = id ? state.categories.get(id) : null;
+  showModal(`<h2>${ic('staff')} ${cat ? 'Edit category' : 'Create category'}</h2>
+    <label class="l">Category name</label>
+    <input class="field" id="catName" maxlength="32" placeholder="New category" value="${esc(cat ? cat.name : '')}" autocomplete="off">
+    ${cat ? '<div class="hint">Deleting a category keeps its channels. They just move out of the category.</div>' : ''}
+    <div class="err" id="mErr"></div>
+    <div class="row"><button class="btn" id="mSave">${cat ? 'Save' : 'Create'}</button>${cat ? '<button class="btn danger" id="mDel">Delete</button>' : ''}</div>`);
+  $('catName').focus();
+  const save = async () => {
+    const name = $('catName').value.trim().slice(0, 32);
+    if (!name) return $('mErr').textContent = 'Enter a category name.';
+    $('mSave').disabled = true;
+    let res;
+    if (cat) res = await sb.from('categories').update({name}).eq('id', cat.id).select();
+    else {
+      const position = Math.max(0, ...[...state.categories.values()].map(c => c.position)) + 1;
+      res = await sb.from('categories').insert({name, position}).select();
+    }
+    $('mSave').disabled = false;
+    if (res.error) return $('mErr').textContent = res.error.message;
+    if (!res.data || !res.data.length) return $('mErr').textContent = 'Not allowed.';
+    onCategory({eventType: cat ? 'UPDATE' : 'INSERT', new: res.data[0]});
+    closeModal();
+  };
+  $('mSave').onclick = save;
+  $('catName').onkeydown = e => { if (e.key === 'Enter') save(); };
+  if (cat) confirmDelete($('mDel'), async () => {
+    const {error} = await sb.from('categories').delete().eq('id', cat.id);
+    if (error) return $('mErr').textContent = error.message;
+    onCategory({eventType: 'DELETE', old: {id: cat.id}}); closeModal();
+  });
+}
+
+/* ---------- me, members ---------- */
 function renderMe() {
   const p = prof(state.me.id);
   $('me').innerHTML = `<img class="av sm" src="${esc(p.avatar_url)}" alt="">
-    <div class="grow"><div class="nm">${esc(p.username)}</div><div class="st">${state.isOwner ? 'owner' : 'anonymous'}</div></div>
-    <button class="iconbtn" id="gear" title="Settings">⚙</button>`;
+    <div class="grow"><div class="nm">${esc(p.username)}</div><div class="st">${state.isOwner ? 'owner' : 'member'}</div></div>
+    <button class="iconbtn" id="gear" title="Settings">${ic('hammer')}</button>`;
   $('gear').onclick = openSettings;
 }
-
 function renderMembers() {
   const arr = [...state.profiles.values()];
   const isOn = p => state.online.has(p.id) || p.id === state.me.id;
@@ -444,7 +764,8 @@ function renderMembers() {
   const row = (p, on) => `<div class="mem ${on ? '' : 'off'}" data-uid="${p.id}">
     <img class="av sm" src="${esc(p.avatar_url)}" alt="">${on ? '<span class="dot"></span>' : ''}
     <span class="mn" style="color:${colorFor(p.id)}">${esc(p.username)}</span>
-    ${p.id === state.ownerId ? '<span class="tag">OWNER</span>' : ''}</div>`;
+    ${p.id === state.ownerId ? `<span class="tag">${ic('staff')}OWNER</span>` : ''}
+    ${state.isOwner ? `<span class="eid" title="Edit profile">${ic('id', 'sm')}</span>` : ''}</div>`;
   $('members').innerHTML = `<h4>Online, ${online.length}</h4>${online.map(p => row(p, true)).join('')}
     ${offline.length ? `<h4 style="margin-top:16px">Offline, ${offline.length}</h4>${offline.map(p => row(p, false)).join('')}` : ''}`;
 }
@@ -452,28 +773,30 @@ $('members').onclick = e => { const m = e.target.closest('[data-uid]'); if (m) u
 function userClick(uid) {
   if (state.isOwner) return openEdit(uid);
   const ta = $('input'); ta.value += (ta.value && !ta.value.endsWith(' ') ? ' ' : '') + '@' + prof(uid).username + ' ';
-  ta.focus(); autosize();
+  ta.focus(); autosize(); updateSend();
 }
 
+/* ---------- messages (keyed diff so nothing flickers) ---------- */
 function msgHtml(m, group) {
   const p = prof(m.user_id);
   const reply = m.reply_to ? state.messages.get(m.reply_to) : null;
   const canDel = m.user_id === state.me.id || state.isOwner;
-  let h = `<div class="msg ${group ? 'grp' : ''} ${mentionsMe(m.content) ? 'mention' : ''} ${m.pinned ? 'pinned' : ''}" data-id="${m.id}">`;
+  let h = `<div class="msg ${group ? 'grp' : ''} ${mentionsMe(m.content) ? 'mention' : ''}" data-id="${m.id}">`;
+  if (m.pinned) h += `<span class="pinmark" title="Pinned">${ic('book')}</span>`;
   h += `<div class="tools">
-    <button data-act="addreact" data-id="${m.id}" title="React">😀</button>
-    <button data-act="reply" data-id="${m.id}" title="Reply">↩</button>
-    <button data-act="pin" data-id="${m.id}" title="${m.pinned ? 'Unpin' : 'Pin'}">📌</button>
-    ${canDel ? `<button data-act="del" data-id="${m.id}" title="Delete">🗑</button>` : ''}</div>`;
+    <button data-act="addreact" data-id="${m.id}" title="React">${svg('smile')}</button>
+    <button data-act="reply" data-id="${m.id}" title="Reply">${svg('reply')}</button>
+    <button data-act="pin" data-id="${m.id}" title="${m.pinned ? 'Unpin' : 'Pin'}">${svg('pin', m.pinned ? 'fill' : '')}</button>
+    ${canDel ? `<button class="dg" data-act="del" data-id="${m.id}" title="Delete">${svg('trash')}</button>` : ''}</div>`;
   if (reply) {
     const rp = prof(reply.user_id);
-    h += `<div class="replyref" data-act="jump" data-id="${reply.id}">↪ <b>${esc(rp.username)}</b> ${esc((reply.content || '[attachment]').slice(0, 80))}</div>`;
+    h += `<div class="replyref" data-act="jump" data-id="${reply.id}">${svg('reply')} <b>${esc(rp.username)}</b> ${esc((reply.content || '[attachment]').slice(0, 80))}</div>`;
   }
   if (group) h += `<span class="gt">${fmtTime(m.created_at)}</span>`;
   else {
     h += `<div class="avc" data-act="user" data-uid="${p.id}"><img class="av" src="${esc(p.avatar_url)}" alt=""></div>
       <div class="mh"><span class="un" data-act="user" data-uid="${p.id}" style="color:${colorFor(p.id)}">${esc(p.username)}</span>
-      ${p.id === state.ownerId ? '<span class="tag">OWNER</span>' : ''}<span class="ts">${fmtTime(m.created_at)}</span></div>`;
+      ${p.id === state.ownerId ? `<span class="tag">${ic('staff')}OWNER</span>` : ''}<span class="ts">${fmtTime(m.created_at)}</span></div>`;
   }
   if (m.content) h += `<div class="body">${formatContent(m.content)}</div>`;
   if (m.attachment_url) {
@@ -481,9 +804,9 @@ function msgHtml(m, group) {
       const fn = (pathFromUrl(m.attachment_url) || '').split('/').pop();
       const isFav = state.favs.some(f => f.path.split('/').pop() === fn);
       h += `<div class="att"><img src="${esc(m.attachment_url)}" alt="${esc(m.attachment_name)}" loading="lazy" data-act="lightbox" data-url="${esc(m.attachment_url)}">
-        <button class="favbtn ${isFav ? 'on' : ''}" data-act="fav" data-id="${m.id}" title="${isFav ? 'Remove from saved photos' : 'Save photo'}">${isFav ? '⭐' : '☆'}</button></div>`;
+        <button class="favbtn ${isFav ? 'on' : ''}" data-act="fav" data-id="${m.id}" title="${isFav ? 'Remove from saved photos' : 'Save photo'}">${svg('star', isFav ? 'fill' : '')}</button></div>`;
     } else {
-      h += `<a class="file" href="${esc(m.attachment_url)}" target="_blank" rel="noopener noreferrer">📎 ${esc(m.attachment_name || 'file')}</a>`;
+      h += `<a class="file" href="${esc(m.attachment_url)}" target="_blank" rel="noopener noreferrer">${ic('gift', 'sm')} ${esc(m.attachment_name || 'file')}</a>`;
     }
   }
   const rs = state.reactions.get(m.id) || [];
@@ -495,19 +818,48 @@ function msgHtml(m, group) {
   return h + '</div>';
 }
 
-function renderMessages(forceBottom) {
+const rendered = new Map();
+let renderedChannel = null, stick = true;
+function renderMessages(mode) {
   const box = $('msgs');
-  const near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+  let first = false;
+  if (mode === 'reset' || renderedChannel !== state.channel) {
+    box.innerHTML = ''; rendered.clear(); renderedChannel = state.channel; box.dataset.ch = state.channel; first = true;
+    box.classList.remove('swap'); void box.offsetWidth; box.classList.add('swap');
+  }
+  const near = stick;
   const list = [...state.messages.values()].filter(m => m.channel === state.channel).sort((a, b) => a.id - b.id);
-  let html = '', prev = null;
-  if (!list.length) html = `<div class="empty">Welcome to #${state.channel}. It is quiet in here. Say something!<br>Everything is wiped every 5 minutes.</div>`;
+  const want = []; let prev = null;
   for (const m of list) {
     const grp = prev && prev.user_id === m.user_id && !m.reply_to && (new Date(m.created_at) - new Date(prev.created_at)) < 300000;
-    html += msgHtml(m, grp); prev = m;
+    want.push({id: m.id, html: msgHtml(m, grp)}); prev = m;
   }
-  box.innerHTML = html;
-  if (forceBottom || near) box.scrollTop = box.scrollHeight;
+  const ids = new Set(want.map(w => w.id));
+  const els = new Map([...box.querySelectorAll(':scope > .msg')].map(e => [+e.dataset.id, e]));
+  els.forEach((e, id) => { if (!ids.has(id)) { e.remove(); rendered.delete(id); els.delete(id); } });
+  const empty = box.querySelector(':scope > .empty');
+  if (!want.length) {
+    if (!empty) box.insertAdjacentHTML('beforeend', `<div class="empty">Welcome to #${esc(state.channel)}.<br>Say something to get things going.</div>`);
+  } else if (empty) empty.remove();
+  let anchor = null;
+  for (const w of want) {
+    let el = els.get(w.id);
+    if (!el || rendered.get(w.id) !== w.html) {
+      const t = document.createElement('template'); t.innerHTML = w.html.trim();
+      const n = t.content.firstElementChild;
+      if (!el && !first) n.classList.add('enter');
+      if (el) el.replaceWith(n);
+      el = n; rendered.set(w.id, w.html);
+    }
+    const expected = anchor ? anchor.nextElementSibling : box.firstElementChild;
+    if (el !== expected) box.insertBefore(el, expected);
+    anchor = el;
+  }
+  if (first) { box.style.scrollBehavior = 'auto'; box.scrollTop = box.scrollHeight; box.style.scrollBehavior = ''; stick = true; }
+  else if (near) box.scrollTo({top: box.scrollHeight, behavior: 'smooth'});
 }
+$('msgs').addEventListener('scroll', e => { const b = e.target; stick = b.scrollHeight - b.scrollTop - b.clientHeight < 140; });
+$('msgs').addEventListener('load', e => { if (e.target.tagName === 'IMG' && stick) { const b = $('msgs'); b.style.scrollBehavior = 'auto'; b.scrollTop = b.scrollHeight; b.style.scrollBehavior = ''; } }, true);
 
 $('msgs').addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
@@ -518,15 +870,14 @@ $('msgs').addEventListener('click', e => {
   else if (act === 'pin') sb.rpc('toggle_pin', {mid: id});
   else if (act === 'del') sb.from('messages').delete().eq('id', id).then(() => { state.messages.delete(id); renderMessages(); });
   else if (act === 'fav') toggleFav(id);
-  else if (act === 'lightbox') { $('lightbox').querySelector('img').src = t.dataset.url; $('lightbox').hidden = false; }
+  else if (act === 'lightbox') { closeOverlays('lightbox'); $('lightbox').querySelector('img').src = t.dataset.url; $('lightbox').classList.add('open'); }
   else if (act === 'jump') jumpTo(id);
   else if (act === 'user') userClick(t.dataset.uid);
 });
-$('lightbox').onclick = () => $('lightbox').hidden = true;
 function jumpTo(id) {
   const el = document.querySelector(`.msg[data-id="${id}"]`); if (!el) return;
   el.scrollIntoView({block: 'center', behavior: 'smooth'});
-  el.style.background = '#404249'; setTimeout(() => el.style.background = '', 1200);
+  el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200);
 }
 
 function renderReply() {
@@ -534,28 +885,28 @@ function renderReply() {
   const m = state.replyTo && state.messages.get(state.replyTo);
   if (!m) { state.replyTo = null; bar.hidden = true; return; }
   bar.hidden = false;
-  bar.innerHTML = `Replying to <b>${esc(prof(m.user_id).username)}</b><button class="x" id="cancelReply">✕</button>`;
+  bar.innerHTML = `${svg('reply')} Replying to <b>${esc(prof(m.user_id).username)}</b><button class="x" id="cancelReply">${ic('x', 'sm')}</button>`;
   $('cancelReply').onclick = () => { state.replyTo = null; renderReply(); };
 }
 function renderPending() {
   const bar = $('pendingBar'), p = state.pending;
-  if (!p) { bar.hidden = true; return; }
+  if (!p) { bar.hidden = true; updateSend(); return; }
   bar.hidden = false;
-  bar.innerHTML = `${p.url ? `<img src="${p.url}" alt="">` : '📎'} <span>${esc(p.file.name)}</span><button class="x" id="cancelPending">✕</button>`;
+  bar.innerHTML = `${p.url ? `<img src="${p.url}" alt="">` : svg('plus')} <span>${esc(p.file.name)}</span><button class="x" id="cancelPending">${ic('x', 'sm')}</button>`;
   $('cancelPending').onclick = () => { state.pending = null; renderPending(); };
+  updateSend();
 }
 function renderPins() {
-  const panel = $('pinsPanel'); if (panel.hidden) return;
+  const panel = $('pinsPanel');
   const pins = [...state.messages.values()].filter(m => m.channel === state.channel && m.pinned).sort((a, b) => b.id - a.id);
-  panel.innerHTML = `<b>Pinned in #${state.channel}</b>` + (pins.length ? pins.map(m => `<div class="pinitem" data-id="${m.id}">
+  panel.innerHTML = `<div class="ph">${ic('book')} Pinned in #${esc(state.channel)}</div>` + (pins.length ? pins.map(m => `<div class="pinitem" data-id="${m.id}">
     <b style="color:${colorFor(m.user_id)}">${esc(prof(m.user_id).username)}</b> <small>${fmtTime(m.created_at)}</small><br>
     ${esc((m.content || '[attachment]').slice(0, 140))}</div>`).join('') : '<div class="empty" style="padding:16px">No pinned messages.</div>');
 }
-$('pinsBtn').onclick = () => { closePanels('pinsPanel'); $('pinsPanel').hidden = !$('pinsPanel').hidden; renderPins(); };
-$('pinsPanel').onclick = e => { const i = e.target.closest('[data-id]'); if (i) { jumpTo(+i.dataset.id); $('pinsPanel').hidden = true; } };
-$('memBtn').onclick = () => $('app').classList.toggle('show-members');
-$('menuBtn').onclick = () => $('app').classList.toggle('show-side');
-function closePanels(except) { ['pinsPanel', 'favPanel'].forEach(id => { if (id !== except) $(id).hidden = true; }); }
+$('pinsBtn').onclick = () => { renderPins(); togglePanel('pinsPanel'); };
+$('pinsPanel').onclick = e => { const i = e.target.closest('[data-id]'); if (i) { jumpTo(+i.dataset.id); closeOverlays('none'); } };
+$('memBtn').onclick = () => toggleDrawer('members');
+$('menuBtn').onclick = () => toggleDrawer('side');
 
 /* ---------- reactions & emoji ---------- */
 async function toggleReaction(mid, emoji) {
@@ -570,27 +921,30 @@ async function toggleReaction(mid, emoji) {
     if (error) toast('Could not react');
   }
 }
-let pickerCb = null;
+let pickerCb = null, pickerAnchor = null;
 function openPicker(anchor, cb) {
   const pk = $('picker');
+  if (pk.classList.contains('open') && pickerAnchor === anchor) return closeOverlays('none');
+  closeOverlays('picker');
   pk.innerHTML = EMOJIS.map(e => `<button data-e="${e}">${e}</button>`).join('');
-  pickerCb = cb; pk.hidden = false;
+  pickerCb = cb; pickerAnchor = anchor;
   const r = anchor.getBoundingClientRect();
   const w = 8 * 36 + 16, h = 4 * 36 + 16;
   pk.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + 'px';
-  pk.style.top = (r.top - h - 6 > 8 ? r.top - h - 6 : r.bottom + 6) + 'px';
+  const above = r.top - h - 6 > 8;
+  pk.style.top = (above ? r.top - h - 6 : r.bottom + 6) + 'px';
+  pk.style.transformOrigin = above ? 'bottom right' : 'top right';
+  requestAnimationFrame(() => pk.classList.add('open'));
 }
-$('picker').onclick = e => { const b = e.target.closest('[data-e]'); if (b && pickerCb) { pickerCb(b.dataset.e); $('picker').hidden = true; } };
-document.addEventListener('mousedown', e => {
-  if (!$('picker').hidden && !e.target.closest('#picker') && !e.target.closest('[data-act="addreact"]') && e.target.id !== 'emojiBtn') $('picker').hidden = true;
-});
+$('picker').onclick = e => { const b = e.target.closest('[data-e]'); if (b && pickerCb) { pickerCb(b.dataset.e); closeOverlays('none'); } };
 $('emojiBtn').onclick = e => {
-  openPicker(e.currentTarget, em => { const ta = $('input'); ta.setRangeText(em, ta.selectionStart, ta.selectionEnd, 'end'); ta.focus(); autosize(); });
+  openPicker(e.currentTarget, em => { const ta = $('input'); ta.setRangeText(em, ta.selectionStart, ta.selectionEnd, 'end'); ta.focus(); autosize(); updateSend(); });
 };
 
 /* ---------- composer ---------- */
 const ta = $('input');
 function autosize() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 200) + 'px'; }
+function updateSend() { $('sendBtn').classList.toggle('ready', !!(ta.value.trim() || state.pending)); }
 let ac = null;
 function hideAC() { ac = null; $('ac').hidden = true; }
 function renderAC() {
@@ -611,16 +965,16 @@ function pickAC(i) {
   const p = ac.items[i], pos = ta.selectionStart;
   ta.value = ta.value.slice(0, ac.start) + '@' + p.username + ' ' + ta.value.slice(pos);
   const np = ac.start + p.username.length + 2;
-  ta.setSelectionRange(np, np); hideAC(); ta.focus();
+  ta.setSelectionRange(np, np); hideAC(); ta.focus(); updateSend();
 }
 $('ac').onmousedown = e => { e.preventDefault(); const d = e.target.closest('[data-i]'); if (d) pickAC(+d.dataset.i); };
-ta.addEventListener('input', () => { autosize(); updateAC(); });
+ta.addEventListener('input', () => { autosize(); updateAC(); updateSend(); });
 ta.addEventListener('keydown', e => {
   if (ac) {
     if (e.key === 'ArrowDown') { e.preventDefault(); ac.idx = (ac.idx + 1) % ac.items.length; return renderAC(); }
     if (e.key === 'ArrowUp') { e.preventDefault(); ac.idx = (ac.idx - 1 + ac.items.length) % ac.items.length; return renderAC(); }
     if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); return pickAC(ac.idx); }
-    if (e.key === 'Escape') return hideAC();
+    if (e.key === 'Escape') { e.stopPropagation(); return hideAC(); }
   }
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 });
@@ -657,13 +1011,13 @@ async function send() {
     if (!state.messages.has(data.id)) state.messages.set(data.id, data);
     ta.value = ''; autosize(); hideAC();
     state.pending = null; state.replyTo = null; renderPending(); renderReply();
-    renderMessages(true); lastSend = Date.now();
+    stick = true; renderMessages(); lastSend = Date.now();
   } catch (e) { toast('Could not send: ' + (e.message || 'error')); }
-  sending = false; $('sendBtn').disabled = false; ta.focus();
+  sending = false; $('sendBtn').disabled = false; updateSend(); ta.focus();
 }
 $('sendBtn').onclick = send;
 
-/* ---------- favorites (saved photos) ---------- */
+/* ---------- saved photos ---------- */
 async function toggleFav(mid) {
   const m = state.messages.get(mid); if (!m || !m.attachment_url) return;
   const src = pathFromUrl(m.attachment_url); if (!src) return;
@@ -682,11 +1036,11 @@ async function removeFav(f) {
   await loadFavs(); renderMessages(); renderFavs();
 }
 function renderFavs() {
-  const p = $('favPanel'); if (p.hidden) return;
-  p.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><b>Saved photos</b><span class="grow" style="flex:1"></span>
-    <button class="btn sec" id="favAdd" style="width:auto;padding:4px 10px;font-size:13px">Add photo</button></div>
-    ${state.favs.length ? `<div class="gr">${state.favs.map((f, i) => `<div class="fi" data-i="${i}"><img src="${esc(f.url)}" alt=""><button class="rm" data-rm="${i}" title="Remove">✕</button></div>`).join('')}</div>`
-      : '<div class="empty" style="padding:16px">Click the star on any photo in chat to save it here. Click a saved photo to resend it.</div>'}
+  const p = $('favPanel');
+  p.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span class="ph">${svg('star', 'fill')} Saved photos</span><span style="flex:1"></span>
+    <button class="btn sec" id="favAdd" style="width:auto;padding:4px 10px;font-size:13px">${svg('plus')} Add photo</button></div>
+    ${state.favs.length ? `<div class="gr">${state.favs.map((f, i) => `<div class="fi" data-i="${i}"><img src="${esc(f.url)}" alt=""><button class="rm" data-rm="${i}" title="Remove">${ic('x', 'sm')}</button></div>`).join('')}</div>`
+      : '<div class="empty" style="padding:16px">Tap the star on any photo in chat to save it here. Tap a saved photo to resend it.</div>'}
     <input type="file" id="favFile" accept="image/*" hidden>`;
   $('favAdd').onclick = () => $('favFile').click();
   $('favFile').onchange = async e => {
@@ -699,7 +1053,7 @@ function renderFavs() {
     await loadFavs(); renderFavs();
   };
 }
-$('favBtn').onclick = () => { closePanels('favPanel'); $('favPanel').hidden = !$('favPanel').hidden; renderFavs(); };
+$('favBtn').onclick = () => { renderFavs(); togglePanel('favPanel'); };
 $('favPanel').onclick = async e => {
   const rm = e.target.closest('[data-rm]');
   if (rm) return removeFav(state.favs[+rm.dataset.rm]);
@@ -711,68 +1065,83 @@ $('favPanel').onclick = async e => {
   if (error) return toast('Could not send');
   if (!state.messages.has(data.id)) state.messages.set(data.id, data);
   state.replyTo = null; renderReply();
-  $('favPanel').hidden = true; renderMessages(true);
+  closeOverlays('none'); stick = true; renderMessages();
 };
 
-/* ---------- 5 minute wipe ---------- */
+/* ---------- 5 minute wipe (timer only, no wording) ---------- */
 function tick() {
   const now = Date.now();
   const win = Math.floor(now / WIPE_MS);
-  const left = (win + 1) * WIPE_MS - now;
-  const s = Math.ceil(left / 1000);
-  const t = $('timer');
-  t.textContent = 'Chat clears in ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-  t.classList.toggle('soon', s <= 30);
+  const s = Math.ceil(((win + 1) * WIPE_MS - now) / 1000);
+  $('timerTxt').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  $('timer').classList.toggle('soon', s <= 30);
   if (state.lastWindow !== null && state.lastWindow !== win) {
     state.messages = new Map(); state.reactions = new Map();
-    state.unread = {general: 0, random: 0}; state.mentionCount = 0;
-    state.replyTo = null; renderReply(); renderChannels(); renderMessages(true); renderPins(); updateTitle();
-    toast('Chat history was cleared');
-    setTimeout(async () => { await loadMessages(); renderMessages(true); }, 3000);
+    state.unread = {}; state.mentionCount = 0; state.replyTo = null;
+    renderReply(); renderChannels(); renderMessages(); renderPins(); updateTitle();
+    setTimeout(async () => { await loadMessages(); renderMessages(); }, 3000);
   }
   state.lastWindow = win;
 }
-function updateTitle() {
-  document.title = state.mentionCount ? `(${state.mentionCount}) anon chat` : 'anon chat';
-}
+function updateTitle() { document.title = state.mentionCount ? `(${state.mentionCount}) anon chat` : 'anon chat'; }
 
-/* ---------- modals ---------- */
-function showModal(html) { $('modalBody').innerHTML = html; $('overlay').hidden = false; }
-function closeModal() { $('overlay').hidden = true; }
-$('overlay').addEventListener('mousedown', e => { if (e.target.id === 'overlay') closeModal(); });
-
+/* ---------- settings, invite keys, profile editing ---------- */
 function openSettings() {
-  const c = loadCreds();
-  const key = c ? btoa(c.email + '|' + c.password) : '';
-  showModal(`<h2>Settings</h2>
-    <p style="color:var(--muted);margin-top:0">Names and profile pictures are random. Only the owner can change them. Chat history clears every 5 minutes.</p>
-    ${key ? `<label>Your account key</label>
-      <input class="field" id="keyOut" readonly value="${esc(key)}">
-      <div style="font-size:12px;color:var(--muted)">Save this key. It is the only way to log back into this account on another device or after logging out.</div>
-      <div class="row"><button class="btn sec" id="copyKey">Copy key</button></div>` : ''}
-    <div class="row"><button class="btn danger" id="logout">Log out</button><button class="btn sec" id="closeM">Close</button></div>`);
-  if (key) $('copyKey').onclick = () => { navigator.clipboard.writeText(key); toast('Key copied'); };
-  $('closeM').onclick = closeModal;
-  $('logout').onclick = async () => {
-    if (key && !confirm('Make sure you saved your account key. Without it you cannot get this account back. Log out?')) return;
-    localStorage.removeItem('anonchat_creds');
-    await sb.auth.signOut(); location.reload();
-  };
+  showModal(`<h2>${ic('hammer')} Settings</h2>
+    <div class="kv"><label class="l">Signed in as</label><div class="val">${esc(state.me.email || '')}</div></div>
+    ${state.isOwner ? `<div class="sec"><div class="sh">${ic('gift')} Invite keys</div>
+      <div class="hint">Each key works once. Give one to someone so they can create an account. A key shows as used here once it has been claimed.</div>
+      <button class="btn" id="genKey">${svg('plus')} Generate key</button>
+      <div class="invites" id="inviteList"></div></div>` : ''}
+    <div class="row"><button class="btn danger" id="logout">Log out</button></div>`);
+  $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  if (state.isOwner) {
+    $('genKey').onclick = async () => {
+      $('genKey').disabled = true;
+      const {data, error} = await sb.rpc('create_invite_key');
+      $('genKey').disabled = false;
+      if (error) return toast('Could not create key');
+      navigator.clipboard?.writeText(data).catch(() => {});
+      toast('Key created and copied');
+      await loadInvites();
+    };
+    $('inviteList').onclick = async e => {
+      const c = e.target.closest('[data-copy]'), r = e.target.closest('[data-revoke]');
+      if (c) { navigator.clipboard?.writeText(c.dataset.copy); toast('Key copied'); }
+      if (r) { await sb.from('invite_keys').delete().eq('id', +r.dataset.revoke); state.invites = state.invites.filter(k => k.id !== +r.dataset.revoke); renderInvites(); }
+    };
+    loadInvites();
+  }
+}
+async function loadInvites() {
+  const {data} = await sb.from('invite_keys').select('*').order('id', {ascending: false});
+  state.invites = data || []; renderInvites();
+}
+function renderInvites() {
+  const box = $('inviteList'); if (!box) return;
+  if (!state.invites.length) { box.innerHTML = '<div class="hint">No keys yet.</div>'; return; }
+  box.innerHTML = state.invites.map(k => {
+    if (k.used_at) {
+      const who = k.used_by ? prof(k.used_by).username : null;
+      return `<div class="inv used"><code>${esc(k.key)}</code><span class="st ok">${ic('check', 'sm')} Used${who ? ' by ' + esc(who) : ''} <small>${esc(new Date(k.used_at).toLocaleString())}</small></span></div>`;
+    }
+    return `<div class="inv"><code>${esc(k.key)}</code><span class="st">Unused</span><button class="mini" data-copy="${esc(k.key)}">Copy</button><button class="mini" data-revoke="${k.id}">Revoke</button></div>`;
+  }).join('');
 }
 
 function openEdit(uid) {
   const p = prof(uid);
   let avatar = p.avatar_url;
-  showModal(`<h2>Edit profile</h2>
+  showModal(`<h2>${ic('id')} Edit profile</h2>
     <div style="display:flex;align-items:center;gap:14px"><img id="edAv" class="av" style="width:72px;height:72px" src="${esc(avatar)}" alt="">
       <div style="flex:1"><button class="btn sec" id="edRandAv" style="margin-bottom:6px">Randomize picture</button>
       <button class="btn sec" id="edUpAv">Upload picture</button><input type="file" id="edFile" accept="image/*" hidden></div></div>
-    <div style="margin-top:14px"><label>Username</label>
-    <input class="field" id="edName" maxlength="24" value="${esc(p.username)}">
-    <div style="font-size:12px;color:var(--muted)">Letters, numbers and underscores, 2 to 24 characters.</div></div>
-    <div class="row"><button class="btn sec" id="edRandName">Randomize name</button></div>
-    <div id="edErr" style="color:#ff8a8d;font-size:13px;min-height:18px;margin-top:8px"></div>
-    <div class="row"><button class="btn" id="edSave">Save</button><button class="btn sec" id="edCancel">Cancel</button></div>`);
+    <div style="margin-top:14px"><label class="l">Username</label>
+    <input class="field" id="edName" maxlength="24" value="${esc(p.username)}" autocomplete="off">
+    <div class="hint">Letters, numbers and underscores, 2 to 24 characters.</div></div>
+    <div class="row" style="margin-top:0"><button class="btn sec" id="edRandName">Randomize name</button></div>
+    <div class="err" id="edErr"></div>
+    <div class="row"><button class="btn" id="edSave">Save</button></div>`);
   $('edRandAv').onclick = () => { avatar = avatarFor(crypto.randomUUID().slice(0, 8)); $('edAv').src = avatar; };
   $('edRandName').onclick = () => { $('edName').value = pick(ADJ) + pick(ANI) + (1000 + Math.floor(Math.random() * 9000)); };
   $('edUpAv').onclick = () => $('edFile').click();
@@ -784,7 +1153,6 @@ function openEdit(uid) {
     if (error) return $('edErr').textContent = 'Upload failed';
     avatar = publicUrl(path); $('edAv').src = avatar;
   };
-  $('edCancel').onclick = closeModal;
   $('edSave').onclick = async () => {
     const name = $('edName').value.trim();
     if (!/^[A-Za-z0-9_]{2,24}$/.test(name)) return $('edErr').textContent = 'Invalid username';
