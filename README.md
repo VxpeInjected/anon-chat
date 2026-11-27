@@ -1,11 +1,11 @@
 # anon chat
 
-A single-room, Discord-style anonymous chat with two channels (#general and #random).
+A single-room, Discord-style anonymous chat.
 
-- Random usernames and profile pictures. Only the owner can change them.
-- Real-time messages, replies, reactions, pins, @mentions with autocomplete
-- Photo and file attachments, drag and drop, paste from clipboard
-- Saved photos: star any photo to keep it and resend it later instead of GIFs
-- All chat history is wiped every 5 minutes (database rows and uploaded files)
+- Invite-only signup: the owner generates one-use keys in settings
+- Owner-managed channels and categories
+- Random usernames and profile pictures (only the owner can change them)
+- Real-time messages, replies, reactions, pins, @mentions
+- Photo and file attachments, plus saved photos you can resend
 
-Static frontend (GitHub Pages) with a Supabase backend (Postgres, Realtime, Storage, Edge Functions, pg_cron).
+Static frontend (GitHub Pages) with a Supabase backend.
