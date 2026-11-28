@@ -23,6 +23,17 @@ const EMOJI_DATA = [
 const EMO = EMOJI_DATA.map(([name, icon, s]) => ({name, icon, list: s.split(';').map(x => { const i = x.indexOf(' '); return {e: x.slice(0, i), n: x.slice(i + 1)}; })}));
 const ALL_EMO = EMO.flatMap(c => c.list);
 const emojiName = e => (ALL_EMO.find(x => x.e === e) || {n: ''}).n;
+const ALIASES = {heart: '❤️', thumbsup: '👍', '+1': '👍', thumbsdown: '👎', '-1': '👎', tada: '🎉', lol: '😂', pray: '🙏', '100': '💯', sad: '😢', angry: '😠', sunglasses: '😎'};
+function emojiByCode(c) { c = c.toLowerCase(); if (ALIASES[c]) return ALIASES[c]; const x = ALL_EMO.find(x => x.n.replace(/ /g, '_') === c); return x ? x.e : null; }
+function emojiMatches(q) {
+  q = q.toLowerCase(); const out = [], seen = new Set();
+  const add = (e, code, r) => { if (!seen.has(e)) { seen.add(e); out.push({e, code, r}); } };
+  for (const x of ALL_EMO) { const code = x.n.replace(/ /g, '_'); if (code.startsWith(q)) add(x.e, code, 0); }
+  for (const [a, e] of Object.entries(ALIASES)) if (a.startsWith(q)) add(e, a, 0);
+  for (const x of ALL_EMO) if (x.n.split(' ').some(w => w.startsWith(q))) add(x.e, x.n.replace(/ /g, '_'), 1);
+  return out.sort((a, b) => a.r - b.r).slice(0, 8);
+}
+const shortcodes = t => t.replace(/:([a-z0-9_+-]{2,}):/gi, (m, c) => emojiByCode(c) || m);
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -30,6 +41,8 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 const fmtTime = t => new Date(t).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 const hash = s => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const colorFor = id => `hsl(${hash(id) % 360} 70% 72%)`;
+const PALETTE = ['#ff7a7a','#ffa94d','#ffd43b','#a9e34b','#51cf66','#38d9a9','#3bc9db','#4dabf7','#748ffc','#9775fa','#da77f2','#f783ac','#ff8787','#63e6be','#74c0fc','#b197fc'];
+const nameColor = p => (p && p.name_color) || colorFor(p && p.id);
 const byPos = (a, b) => (a.position - b.position) || (a.id - b.id);
 const slug = s => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32);
 const safeUrl = u => (typeof u === 'string' && u.startsWith(STORE)) ? u : '';
@@ -43,6 +56,7 @@ const SV = {
   trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>',
   star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
   dots: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
 };
 const svg = (n, c = '') => `<svg class="sv ${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SV[n]}</svg>`;
 $('favBtn').innerHTML = svg('star');
@@ -79,7 +93,7 @@ const state = {
   profiles: new Map(), byName: new Map(), categories: new Map(), channels: new Map(),
   messages: new Map(), reactions: new Map(), votes: new Map(), pins: [], invites: [],
   settings: {show_owner_tag: true, wipe_minutes: 5, owner_user_mode: false, next_wipe_at: null},
-  channel: 'general', unread: {}, mentionCount: 0,
+  channel: 'general', unread: {}, mentions: {}, mentionCount: 0,
   collapsed: new Set(JSON.parse(localStorage.getItem('anonchat_collapsed') || '[]')),
   favs: [], online: new Set(), pending: null, replyTo: null, lastKey: null,
 };
@@ -99,13 +113,40 @@ function mentionsMe(text) {
   return new RegExp('@' + prof(state.me.id).username + '(?![A-Za-z0-9_])', 'i').test(text);
 }
 function formatContent(text) {
-  let h = esc(text);
-  h = h.replace(/(https?:\/\/[^\s<]+)/g, u => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
-  h = h.replace(/(^|[\s>(])@([A-Za-z0-9_]{2,24})(?![A-Za-z0-9_])/g, (full, pre, name) => {
+  const ph = [], stash = h => '\uE000' + (ph.push(h) - 1) + '\uE001';
+  text = String(text ?? '');
+  text = text.replace(/```(?:[a-z0-9+#-]*\n)?([\s\S]*?)```/gi, (m, c) => stash(`<pre class="md-pre"><code>${esc(c.replace(/\n$/, ''))}</code></pre>`));
+  text = text.replace(/`([^`\n]+)`/g, (m, c) => stash(`<code class="md-code">${esc(c)}</code>`));
+  text = text.replace(/\\([\\*_~|`>#-])/g, (m, c) => stash(esc(c)));
+  text = text.replace(/https?:\/\/[^\s<\uE000]+/g, u => stash(`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u)}</a>`));
+  const mentionize = h => h.replace(/(^|[\s>(])@([A-Za-z0-9_]{2,24})(?![A-Za-z0-9_])/g, (full, pre, name) => {
     const p = state.byName.get(name.toLowerCase());
     return p ? `${pre}<span class="mt${p.id === state.me.id ? ' self' : ''}">@${esc(p.username)}</span>` : full;
   });
-  return h.replace(/\n/g, '<br>');
+  const inline = t => mentionize(esc(t)
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<b><i>$1</i></b>')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/__(.+?)__/g, '<u>$1</u>')
+    .replace(/(^|[^*\w])\*(?!\s)(.+?)\*(?!\*)/g, '$1<i>$2</i>')
+    .replace(/(^|[^_\w])_(?!\s)(.+?)_(?![_\w])/g, '$1<i>$2</i>')
+    .replace(/~~(.+?)~~/g, '<s>$1</s>')
+    .replace(/\|\|(.+?)\|\|/g, '<span class="md-spoiler" data-act="spoiler">$1</span>'));
+  const lines = text.split('\n'), out = [];
+  let i = 0;
+  const push = (h, b) => out.push({h, b});
+  while (i < lines.length) {
+    const l = lines[i]; let m;
+    if ((m = /^(#{1,3}) +(.+)$/.exec(l))) { push(`<div class="md-h md-h${m[1].length}">${inline(m[2])}</div>`, 1); i++; }
+    else if ((m = /^-# +(.+)$/.exec(l))) { push(`<div class="md-sub">${inline(m[1])}</div>`, 1); i++; }
+    else if (l.startsWith('>>> ')) { push(`<div class="md-quote">${[l.slice(4), ...lines.slice(i + 1)].map(inline).join('<br>')}</div>`, 1); i = lines.length; }
+    else if (l.startsWith('> ')) { const q = []; while (i < lines.length && lines[i].startsWith('> ')) { q.push(lines[i].slice(2)); i++; } push(`<div class="md-quote">${q.map(inline).join('<br>')}</div>`, 1); }
+    else if (/^[*-] +\S/.test(l)) { const it = []; while (i < lines.length && /^[*-] +\S/.test(lines[i])) { it.push(lines[i].replace(/^[*-] +/, '')); i++; } push(`<ul class="md-ul">${it.map(x => `<li>${inline(x)}</li>`).join('')}</ul>`, 1); }
+    else if (/^\d+\. +\S/.test(l)) { const it = []; while (i < lines.length && /^\d+\. +\S/.test(lines[i])) { it.push(lines[i].replace(/^\d+\. +/, '')); i++; } push(`<ol class="md-ul">${it.map(x => `<li>${inline(x)}</li>`).join('')}</ol>`, 1); }
+    else { push(inline(l), 0); i++; }
+  }
+  let html = out.map((o, k) => (k && !o.b && !out[k - 1].b ? '<br>' : '') + o.h).join(''), prev;
+  do { prev = html; html = html.replace(/\uE000(\d+)\uE001/g, (m, n) => ph[+n]); } while (html !== prev);
+  return html;
 }
 const curChannel = () => [...state.channels.values()].find(c => c.name === state.channel);
 const ownerTag = uid => (uid === state.ownerId && state.settings.show_owner_tag && !state.settings.owner_user_mode) ? `<span class="tag">${ic('crown')}OWNER</span>` : '';
@@ -183,7 +224,7 @@ document.addEventListener('mousedown', hideTip);
 /* custom context menu / dropdown / plus menu */
 let ctxItems = [];
 function showCtx(x, y, items, opts = {}) {
-  closeOverlays(opts.inModal ? ['ctx', 'modal'] : 'ctx');
+  closeOverlays(opts.inModal ? ['ctx', 'modal'] : opts.keepPicker ? ['ctx', 'picker'] : 'ctx');
   ctxItems = items;
   const el = $('ctx'); el.classList.toggle('sel', !!opts.select);
   el.innerHTML = items.map((it, i) => it === 'sep' ? '<div class="cs"></div>' :
@@ -200,13 +241,13 @@ $('ctx').addEventListener('click', e => {
   const b = e.target.closest('[data-i]'); if (!b) return;
   const it = ctxItems[+b.dataset.i];
   $('ctx').classList.remove('open');
-  if (it && it.onClick) it.onClick();
+  if (it && it.onClick) it.onClick(e.shiftKey);
 });
 function dropdown(id, options, value, onChange) {
   const el = $(id); let cur = value;
   const label = () => (options.find(o => String(o.v) === String(cur)) || {l: 'Select'}).l;
   el.className = 'ddb'; el.setAttribute('data-keep', '');
-  el.innerHTML = `<span>${esc(label())}</span>${ic('arrow')}`;
+  el.innerHTML = `<span>${esc(label())}</span>${ic('chev')}`;
   el.onclick = () => {
     const r = el.getBoundingClientRect();
     showCtx(r.left, r.bottom + 4, options.map(o => ({label: o.l, checked: String(o.v) === String(cur), onClick: () => { cur = o.v; el.firstElementChild.textContent = o.l; if (onChange) onChange(o.v); }})), {minWidth: r.width, inModal: true, select: true});
@@ -297,8 +338,8 @@ async function start(user) {
   await Promise.all([loadMessages(), loadFavs()]);
   renderAll(); subscribe();
   tick(); setInterval(tick, 1000);
-  setInterval(syncProfiles, 30000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) updateTitle(); });
+  setInterval(syncProfiles, 30000); setInterval(syncChannels, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) markRead(state.channel); });
 }
 async function loadMessages() {
   const {data: ms} = await sb.from('messages').select('*').order('id', {ascending: false}).limit(400);
@@ -318,12 +359,26 @@ async function syncProfiles() {
   if (!data.some(p => p.id === state.me.id)) return kickedOut();
   state.profiles = new Map(data.map(p => [p.id, p])); rebuildNames(); renderMembers();
 }
+async function syncChannels() {
+  const [cs, cg] = await Promise.all([sb.from('channels').select('*'), sb.from('categories').select('*')]);
+  if (cs.error || !cs.data) return;
+  const before = new Set([...state.channels.values()].map(c => c.name));
+  state.channels = new Map(cs.data.map(c => [c.id, c]));
+  if (cg.data) state.categories = new Map(cg.data.map(c => [c.id, c]));
+  const names = new Set(cs.data.map(c => c.name));
+  for (const [id, m] of state.messages) if (!names.has(m.channel)) state.messages.delete(id);
+  const gained = cs.data.some(c => !before.has(c.name));
+  if (!names.has(state.channel)) { const f = [...state.channels.values()].sort(byPos)[0]; if (f) selectChannel(f.name); }
+  renderChannels(); renderTitle();
+  if (gained) await loadMessages();
+  renderMessages(); renderPins();
+}
 async function loadFavs() { const {data} = await sb.from('favorites').select('*').order('created_at', {ascending: false}); state.favs = data || []; }
 
 /* ---------- realtime ---------- */
 function subscribe() {
   const ch = sb.channel('db');
-  [['messages', onMsg], ['reactions', onReact], ['poll_votes', onVote], ['profiles', onProf], ['channels', onChannel], ['categories', onCategory], ['invite_keys', onInvite], ['pinned_messages', onPin], ['app_settings', onSettings]]
+  [['messages', onMsg], ['reactions', onReact], ['poll_votes', onVote], ['profiles', onProf], ['channels', onChannel], ['categories', onCategory], ['invite_keys', onInvite], ['pinned_messages', onPin], ['app_settings', onSettings], ['channel_members', () => syncChannels()]]
     .forEach(([t, fn]) => ch.on('postgres_changes', {event: '*', schema: 'public', table: t}, fn));
   ch.subscribe();
   const pc = sb.channel('online', {config: {presence: {key: state.me.id}}});
@@ -335,9 +390,9 @@ async function onMsg(p) {
     const m = p.new; if (state.messages.has(m.id)) return;
     await ensureProfile(m.user_id);
     state.messages.set(m.id, m);
-    if (m.user_id !== state.me.id && (m.channel !== state.channel || document.hidden)) {
+    if (m.user_id !== state.me.id && !isSys(m) && (m.channel !== state.channel || document.hidden)) {
       state.unread[m.channel] = (state.unread[m.channel] || 0) + 1;
-      if (mentionsMe(m.content)) state.mentionCount++;
+      if (mentionsMe(m.content)) { state.mentions[m.channel] = (state.mentions[m.channel] || 0) + 1; recountMentions(); }
       renderChannels(); updateTitle();
     }
     if (m.channel === state.channel) renderMessages();
@@ -421,8 +476,8 @@ function onSettings(p) {
 function renderAll() { renderChannels(); renderTitle(); renderMe(); renderMembers(); renderMessages('reset'); renderReply(); renderPending(); updateSend(); renderPins(); }
 function chRow(c) {
   const u = state.unread[c.name] || 0;
-  return `<div class="chrow"><button class="ch ${c.name === state.channel ? 'active' : ''} ${u ? 'unread' : ''}" data-ch="${esc(c.name)}">${ic('channel')}<span class="cn">${esc(c.name)}</span>${u ? `<span class="badge">${u}</span>` : ''}</button>
-    ${state.isOwner ? `<button class="chedit" data-act="editch" data-id="${c.id}" data-tip="Edit Channel">${ic('edit')}</button>` : ''}</div>`;
+  return `<div class="chrow"><button class="ch ${c.name === state.channel ? 'active' : ''} ${u ? 'unread' : ''}" data-ch="${esc(c.name)}">${c.is_private ? svg('lock') : ic('channel')}<span class="cn">${esc(c.name)}</span>${u ? `<span class="badge">${u}</span>` : ''}</button>
+    ${state.isOwner ? `<button class="chedit" data-act="editch" data-id="${c.id}" data-tip="Channel Settings">${ic('settings')}</button>` : ''}</div>`;
 }
 function renderChannels() {
   const cats = [...state.categories.values()].sort(byPos), chs = [...state.channels.values()].sort(byPos);
@@ -430,17 +485,18 @@ function renderChannels() {
   let h = loose.map(chRow).join('');
   for (const cat of cats) {
     h += `<div class="cat ${state.collapsed.has(cat.id) ? 'col' : ''}" data-cat="${cat.id}">
-      <div class="cathead"><button class="catbtn" data-act="togglecat" data-id="${cat.id}">${ic('arrow')}<span>${esc(cat.name)}</span></button>
+      <div class="cathead"><button class="catbtn" data-act="togglecat" data-id="${cat.id}">${ic('chev')}<span>${esc(cat.name)}</span></button>
         ${state.isOwner ? `<span class="catact"><button data-act="addch" data-id="${cat.id}" data-tip="Create Channel">${ic('plus')}</button><button data-act="editcat" data-id="${cat.id}" data-tip="Edit Category">${ic('edit')}</button></span>` : ''}</div>
       <div class="catbody"><div class="catin">${chs.filter(c => c.category_id === cat.id).map(chRow).join('')}</div></div></div>`;
   }
+  if (Object.values(state.unread).some(Boolean)) h += `<button class="markall" data-act="markall">${ic('check', 'sm')} Mark all as read</button>`;
   $('channels').innerHTML = h;
 }
-function renderTitle() { $('chTitle').innerHTML = `${ic('channel')}<span>${esc(state.channel)}</span>`; $('input').placeholder = 'Message #' + state.channel; }
+function renderTitle() { const c = curChannel(); $('chTitle').innerHTML = `${c && c.is_private ? svg('lock') : ic('channel')}<span>${esc(state.channel)}</span>`; $('input').placeholder = 'Message #' + state.channel; $('timer').hidden = !!c && c.auto_clear === false; }
 function selectChannel(name) {
   if (name === state.channel && $('msgs').dataset.ch === name) return;
   state.channel = name; state.unread[name] = 0;
-  if (!Object.values(state.unread).some(Boolean)) state.mentionCount = 0;
+  delete state.mentions[name]; recountMentions();
   state.replyTo = null; renderReply();
   document.querySelectorAll('.ch').forEach(b => {
     b.classList.toggle('active', b.dataset.ch === name);
@@ -462,32 +518,54 @@ $('channels').addEventListener('click', e => {
   else if (act === 'addch') openChannelModal(null, id);
   else if (act === 'editch') openChannelModal(id);
   else if (act === 'editcat') openCategoryModal(id);
+  else if (act === 'markall') markAllRead();
 });
 
-function openChannelModal(id, catId) {
+async function openChannelModal(id, catId) {
   const ch = id ? state.channels.get(id) : null;
-  showModal(`<h2>${ic('channel')} ${ch ? 'Edit Channel' : 'Create Channel'}</h2>
-    <p class="sub2">${ch ? 'Rename this channel or move it to another category.' : 'Channels are where conversations happen. Use lowercase letters, numbers and dashes.'}</p>
+  let priv = ch ? !!ch.is_private : false, clear = ch ? ch.auto_clear !== false : true;
+  const members = new Set();
+  if (ch && ch.is_private) { const {data} = await sb.from('channel_members').select('user_id').eq('channel_id', ch.id); (data || []).forEach(r => members.add(r.user_id)); }
+  showModal(`<h2>${ic('settings')} ${ch ? 'Channel Settings' : 'Create Channel'}</h2>
+    <p class="sub2">${ch ? 'Rename it, move it, or change who can see it.' : 'Channels are where conversations happen. Use lowercase letters, numbers and dashes.'}</p>
     <label class="l">Channel name</label>
     <input class="field" id="chName" maxlength="32" placeholder="new-channel" value="${esc(ch ? ch.name : '')}" autocomplete="off">
     <label class="l">Category</label><button type="button" id="chCat"></button>
+    <div class="setrow"><div class="tx"><b>Private channel</b><small>Only the people you pick can see it.</small></div><button class="sw ${priv ? 'on' : ''}" id="swPriv" type="button"></button></div>
+    <div id="privBox" ${priv ? '' : 'hidden'}><input class="field" id="memSearch" placeholder="Search people" autocomplete="off"><div class="memlist" id="memList"></div></div>
+    <div class="setrow"><div class="tx"><b>Clear chat automatically</b><small>Turn off to keep this channel's history.</small></div><button class="sw ${clear ? 'on' : ''}" id="swClear" type="button"></button></div>
     <div class="err" id="mErr"></div>
-    <div class="row"><button class="btn" id="mSave">${ch ? 'Save Changes' : 'Create Channel'}</button>${ch ? '<button class="btn danger" id="mDel">Delete</button>' : ''}</div>`);
+    <div class="row"><button class="btn" id="mSave">${ch ? 'Save Changes' : 'Create Channel'}</button>${ch ? '<button class="btn danger" id="mDel">Delete</button>' : ''}</div>`, {wide: true});
   const cats = [...state.categories.values()].sort(byPos);
   const dd = dropdown('chCat', [{v: '', l: 'No category'}, ...cats.map(c => ({v: c.id, l: c.name}))], (ch ? ch.category_id : catId) || '');
+  const drawMembers = () => {
+    const q = $('memSearch').value.trim().toLowerCase();
+    $('memList').innerHTML = [...state.profiles.values()].filter(p => p.id !== state.ownerId && p.username.toLowerCase().includes(q))
+      .map(p => `<button type="button" class="mrow" data-uid="${p.id}"><span class="cbx ${members.has(p.id) ? 'on' : ''}"></span>${avImg(p, 'sm')}<span style="color:${nameColor(p)}">${esc(p.username)}</span></button>`).join('') || '<div class="hint" style="margin:8px">No one to add yet.</div>';
+  };
+  drawMembers();
+  $('memSearch').oninput = drawMembers;
+  $('memList').onclick = e => { const r = e.target.closest('[data-uid]'); if (!r) return; if (members.has(r.dataset.uid)) members.delete(r.dataset.uid); else members.add(r.dataset.uid); drawMembers(); };
+  $('swPriv').onclick = () => { priv = !priv; $('swPriv').classList.toggle('on', priv); $('privBox').hidden = !priv; };
+  $('swClear').onclick = () => { clear = !clear; $('swClear').classList.toggle('on', clear); };
   $('chName').focus();
   const save = async () => {
     const name = slug($('chName').value);
     if (!name) return $('mErr').textContent = 'Enter a channel name using letters, numbers or dashes.';
     const category_id = dd.get() ? +dd.get() : null;
     $('mSave').disabled = true;
-    const res = ch ? await sb.from('channels').update({name, category_id}).eq('id', ch.id).select()
-      : await sb.from('channels').insert({name, category_id, position: Math.max(0, ...[...state.channels.values()].map(c => c.position)) + 1}).select();
+    const payload = {name, category_id, auto_clear: clear};
+    const res = ch ? await sb.from('channels').update(payload).eq('id', ch.id).select()
+      : await sb.from('channels').insert({...payload, position: Math.max(0, ...[...state.channels.values()].map(c => c.position)) + 1}).select();
+    if (res.error) { $('mSave').disabled = false; return $('mErr').textContent = /duplicate|unique/i.test(res.error.message) ? 'A channel with that name already exists.' : 'Could not save the channel.'; }
+    if (!res.data || !res.data.length) { $('mSave').disabled = false; return $('mErr').textContent = 'You do not have permission to do that.'; }
+    const row = res.data[0];
+    const acc = await sb.rpc('set_channel_access', {cid: row.id, priv, uids: [...members]});
     $('mSave').disabled = false;
-    if (res.error) return $('mErr').textContent = /duplicate|unique/i.test(res.error.message) ? 'A channel with that name already exists.' : 'Could not save the channel.';
-    if (!res.data || !res.data.length) return $('mErr').textContent = 'You do not have permission to do that.';
-    onChannel({eventType: ch ? 'UPDATE' : 'INSERT', new: res.data[0]}); closeModal();
-    if (!ch) selectChannel(res.data[0].name);
+    if (acc.error) return $('mErr').textContent = 'Saved, but access could not be updated.';
+    row.is_private = priv;
+    onChannel({eventType: ch ? 'UPDATE' : 'INSERT', new: row}); closeModal();
+    if (!ch) selectChannel(row.name);
   };
   $('mSave').onclick = save; $('chName').onkeydown = e => { if (e.key === 'Enter') save(); };
   if (ch) armButton($('mDel'), 'Delete', async () => {
@@ -499,7 +577,7 @@ function openChannelModal(id, catId) {
 }
 function openCategoryModal(id) {
   const cat = id ? state.categories.get(id) : null;
-  showModal(`<h2>${ic('arrow')} ${cat ? 'Edit Category' : 'Create Category'}</h2>
+  showModal(`<h2>${ic('chev')} ${cat ? 'Edit Category' : 'Create Category'}</h2>
     <p class="sub2">${cat ? 'Deleting a category keeps its channels. They just move out of it.' : 'Categories group related channels together.'}</p>
     <label class="l">Category name</label>
     <input class="field" id="catName" maxlength="32" placeholder="New Category" value="${esc(cat ? cat.name : '')}" autocomplete="off">
@@ -536,7 +614,7 @@ function renderMembers() {
   arr.sort((a, b) => (isOn(b) - isOn(a)) || a.username.localeCompare(b.username));
   const on = arr.filter(isOn), off = arr.filter(p => !isOn(p));
   const row = (p, o) => `<div class="mem ${o ? '' : 'off'}" data-uid="${p.id}"><span class="avw">${avImg(p, 'sm')}${o ? '<span class="dot"></span>' : ''}</span>
-    <span class="mn" style="color:${colorFor(p.id)}">${esc(p.username)}</span>${ownerTag(p.id)}</div>`;
+    <span class="mn" style="color:${nameColor(p)}">${esc(p.username)}</span>${ownerTag(p.id)}</div>`;
   $('members').innerHTML = `<h4>Online - ${on.length}</h4>${on.map(p => row(p, true)).join('')}${off.length ? `<h4 style="margin-top:16px">Offline - ${off.length}</h4>${off.map(p => row(p, false)).join('')}` : ''}`;
 }
 $('members').onclick = e => { const m = e.target.closest('[data-uid]'); if (m) userClick(m.dataset.uid, e); };
@@ -579,7 +657,9 @@ makeResizer($('rz'), '--memw', 'anonchat_memw', ev => innerWidth - ev.clientX);
 makeResizer($('rzl'), '--sidew', 'anonchat_sidew', ev => ev.clientX);
 
 /* ---------- messages ---------- */
-const quickEmojis = () => { const f = JSON.parse(localStorage.getItem('anonchat_freq') || '[]'); return f.length >= 2 ? f.slice(0, 2) : ['👍', '😂']; };
+const pinnedEmojis = () => JSON.parse(localStorage.getItem('anonchat_pinemoji') || '[]');
+function togglePinEmoji(e) { let p = pinnedEmojis(); p = p.includes(e) ? p.filter(x => x !== e) : [e, ...p].slice(0, 20); localStorage.setItem('anonchat_pinemoji', JSON.stringify(p)); }
+const quickEmojis = () => [...new Set([...pinnedEmojis(), ...JSON.parse(localStorage.getItem('anonchat_freq') || '[]'), '👍', '😂', '❤️'])].slice(0, 3);
 function pollHtml(m) {
   const p = m.poll, votes = state.votes.get(m.id) || [], total = new Set(votes.map(v => v.user_id)).size;
   return `<div class="poll"><div class="pq">${esc(p.question)}</div><div class="ph2">${p.multi ? 'Select one or more answers' : 'Select one answer'}</div>
@@ -588,27 +668,46 @@ function pollHtml(m) {
       return `<button class="po ${mine ? 'mine' : ''}" data-act="vote" data-id="${m.id}" data-i="${i}"><span class="pb" style="width:${pct}%"></span><span class="pl">${mine ? ic('check', 'sm') : '<span class="rad"></span>'}${esc(o)}</span><span class="pc">${c} - ${pct}%</span></button>`;
     }).join('')}<div class="pt">${total} ${total === 1 ? 'vote' : 'votes'}</div></div>`;
 }
+function isSys(m) { return !!m.kind && m.kind !== 'user'; }
+const JOIN_LINES = ['Welcome, %n. We hope you brought pizza.', '%n just joined the chat. Say hi!', 'Everyone welcome %n!', '%n has arrived.'];
+function sysHtml(m) {
+  const p = prof(m.user_id), nm = `<b style="color:${nameColor(p)}">${esc(p.username)}</b>`;
+  let ico, txt;
+  if (m.kind === 'join') { ico = ic('arrow', 'sysj'); txt = esc(JOIN_LINES[m.id % JOIN_LINES.length]).replace('%n', nm); }
+  else { ico = ic('pin', 'syspin'); txt = `${nm} pinned ${m.reply_to ? `<a data-act="jump" data-id="${m.reply_to}">a message</a>` : 'a message'} to this channel. See all <a data-act="openpins">pinned messages</a>.`; }
+  return `<div class="msg sys" data-id="${m.id}"><span class="sysic">${ico}</span><div class="body">${txt}</div><span class="ts">${fmtTime(m.created_at)}</span></div>`;
+}
+function previewOf(m) {
+  const p = prof(m.user_id);
+  return `<div class="pvh">${avImg(p, 'sm')}<b style="color:${nameColor(p)}">${esc(p.username)}</b></div><div>${esc((m.content || (m.poll ? 'Poll: ' + m.poll.question : 'Attachment')).slice(0, 220))}</div>`;
+}
+function confirmBox(o) {
+  showModal(`<h2>${esc(o.title)}</h2><p class="sub2">${esc(o.body)}</p><div class="pvbox">${o.preview}</div><div class="hint">Tip: hold Shift when you click to skip this confirmation.</div><div class="row"><button class="btn sec" id="cfNo">Cancel</button><button class="btn ${o.danger ? 'danger' : ''}" id="cfYes">${esc(o.label)}</button></div>`);
+  $('cfNo').onclick = () => closeModal(); $('cfYes').onclick = () => { closeModal(); o.run(); };
+}
+function askDelete(m, shift) {
+  if (shift) return delMsg(m.id);
+  confirmBox({title: 'Delete Message', body: 'Are you sure you want to delete this message?', preview: previewOf(m), label: 'Delete', danger: true, run: () => delMsg(m.id)});
+}
 function shiftBtns(m) {
-  const canDel = m.user_id === state.me.id || state.isOwner;
-  return (canDel ? `<button class="xs dg" data-act="delnow" data-id="${m.id}" data-tip="Delete">${svg('trash')}</button>` : '')
+  const canDel = m.user_id === state.me.id || state.isOwner, pinned = isPinned(m.id);
+  return (state.isOwner ? `<button class="xs ${pinned ? 'on' : ''}" data-act="pin" data-id="${m.id}" data-tip="${pinned ? 'Unpin' : 'Pin'}">${ic('pin')}</button>` : '')
+    + (canDel ? `<button class="xs dg" data-act="delnow" data-id="${m.id}" data-tip="Delete">${svg('trash')}</button>` : '')
     + (m.content ? `<button class="xs" data-act="copytext" data-id="${m.id}" data-tip="Copy Text">${ic('file')}</button>` : '')
     + `<button class="xs" data-act="copyid" data-id="${m.id}" data-tip="Copy ID">${ic('id')}</button>`;
 }
 function msgHtml(m, group) {
+  if (isSys(m)) return sysHtml(m);
   const p = prof(m.user_id), reply = m.reply_to ? state.messages.get(m.reply_to) : null, pinned = isPinned(m.id);
   let h = `<div class="msg ${group ? 'grp' : ''} ${reply ? 'hasreply' : ''} ${mentionsMe(m.content) ? 'mention' : ''}" data-id="${m.id}">`;
-  h += `<div class="bar">${shiftBtns(m)}${quickEmojis().map(e => `<button data-keep data-act="react" data-id="${m.id}" data-emoji="${esc(e)}">${e}</button>`).join('')}
-    <button data-keep data-act="addreact" data-id="${m.id}" data-tip="Add Reaction">${ic('emoji')}</button>
-    <button data-keep data-act="reply" data-id="${m.id}" data-tip="Reply">${svg('reply')}</button>
-    ${state.isOwner ? `<button class="${pinned ? 'on' : ''}" data-act="pin" data-id="${m.id}" data-tip="${pinned ? 'Unpin' : 'Pin'}">${ic('pin')}</button>` : ''}
-    <button data-keep data-act="more" data-id="${m.id}" data-tip="More">${svg('dots', 'fill')}</button></div>`;
+  h += `<div class="bar">${quickEmojis().map(e => `<button data-keep data-act="react" data-id="${m.id}" data-emoji="${esc(e)}">${e}</button>`).join('')}<button data-keep data-act="addreact" data-id="${m.id}" data-tip="Add Reaction">${ic('emoji')}</button><button data-keep data-act="reply" data-id="${m.id}" data-tip="Reply">${svg('reply')}</button><button data-keep data-act="more" data-id="${m.id}" data-tip="More">${svg('dots', 'fill')}</button>${shiftBtns(m)}</div>`;
   if (reply) {
     const rp = prof(reply.user_id);
     h += `<div class="replyref" data-act="jump" data-id="${reply.id}">${avImg(rp, 'xs')}<b>${esc(rp.username)}</b><span class="rt">${esc((reply.content || (reply.poll ? 'Poll' : 'Click to see attachment')).slice(0, 90))}</span></div>`;
   }
   if (group) h += `<span class="gt">${fmtTime(m.created_at)}</span>`;
   else h += `<div class="avc" data-act="user" data-uid="${p.id}">${avImg(p)}</div>
-    <div class="mh"><span class="un" data-act="user" data-uid="${p.id}" style="color:${colorFor(p.id)}">${esc(p.username)}</span>${ownerTag(p.id)}<span class="ts">${fmtTime(m.created_at)}</span>${pinned ? `<span class="pinmark" data-tip="Pinned">${ic('pin')}</span>` : ''}</div>`;
+    <div class="mh"><span class="un" data-act="user" data-uid="${p.id}" style="color:${nameColor(p)}">${esc(p.username)}</span>${ownerTag(p.id)}<span class="ts">${fmtTime(m.created_at)}</span>${pinned ? `<span class="pinmark" data-tip="Pinned">${ic('pin')}</span>` : ''}</div>`;
   if (m.content) h += `<div class="body">${formatContent(m.content)}</div>`;
   if (m.poll) h += pollHtml(m);
   const url = safeUrl(m.attachment_url);
@@ -639,7 +738,7 @@ function renderMessages(mode) {
   const list = [...state.messages.values()].filter(m => m.channel === state.channel).sort((a, b) => a.id - b.id);
   const want = []; let prev = null;
   for (const m of list) {
-    const grp = prev && prev.user_id === m.user_id && !m.reply_to && (new Date(m.created_at) - new Date(prev.created_at)) < 300000;
+    const grp = prev && !isSys(prev) && !isSys(m) && prev.user_id === m.user_id && !m.reply_to && (new Date(m.created_at) - new Date(prev.created_at)) < 300000;
     want.push({id: m.id, html: msgHtml(m, grp)}); prev = m;
   }
   const ids = new Set(want.map(w => w.id));
@@ -673,12 +772,14 @@ $('msgs').addEventListener('click', e => {
   if (act === 'react') toggleReaction(id, t.dataset.emoji);
   else if (act === 'addreact') openPicker(t.getBoundingClientRect(), em => toggleReaction(id, em));
   else if (act === 'reply') { state.replyTo = id; renderReply(); $('input').focus(); }
-  else if (act === 'pin' && m) togglePin(m);
+  else if (act === 'pin' && m) togglePin(m, e.shiftKey);
   else if (act === 'more' && m) { const r = t.getBoundingClientRect(); showCtx(r.right - 190, r.bottom + 4, msgMenu(m, r.left, r.bottom)); }
   else if (act === 'fav') toggleFav(id);
   else if (act === 'delnow') delMsg(id);
   else if (act === 'copytext' && m) copyText(m.content);
   else if (act === 'copyid') copyText(String(id));
+  else if (act === 'openpins') { renderPins(); togglePanel('pinsPanel'); }
+  else if (act === 'spoiler') t.classList.toggle('on');
   else if (act === 'vote') vote(id, +t.dataset.i);
   else if (act === 'lightbox') { closeOverlays('lightbox'); $('lightbox').querySelector('img').src = t.dataset.url; $('lightbox').classList.add('open'); }
   else if (act === 'jump') jumpTo(id);
@@ -695,6 +796,7 @@ function jumpTo(id) {
   el.scrollIntoView({block: 'center', behavior: 'smooth'}); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200);
 }
 function msgMenu(m, x, y) {
+  if (isSys(m)) return state.isOwner ? [{label: 'Delete Message', svg: 'trash', danger: true, onClick: sh => askDelete(m, sh)}] : [];
   const items = [
     {label: 'Add Reaction', icon: 'emoji', onClick: () => openPicker({left: x, right: x, top: y, bottom: y}, em => toggleReaction(m.id, em))},
     {label: 'Reply', svg: 'reply', onClick: () => { state.replyTo = m.id; renderReply(); $('input').focus(); }},
@@ -706,8 +808,8 @@ function msgMenu(m, x, y) {
     items.push('sep', {label: 'Open Image', icon: 'link', onClick: () => window.open(url, '_blank', 'noopener')}, {label: 'Copy Image Address', icon: 'link', onClick: () => copyText(url)},
       {label: isFav ? 'Remove from Saved Photos' : 'Save Photo', svg: 'star', onClick: () => toggleFav(m.id)});
   }
-  if (state.isOwner) items.push('sep', {label: isPinned(m.id) ? 'Unpin Message' : 'Pin Message', icon: 'pin', onClick: () => togglePin(m)});
-  if (m.user_id === state.me.id || state.isOwner) { if (!state.isOwner) items.push('sep'); items.push({label: 'Delete Message', svg: 'trash', danger: true, onClick: () => delMsg(m.id)}); }
+  if (state.isOwner) items.push('sep', {label: isPinned(m.id) ? 'Unpin Message' : 'Pin Message', icon: 'pin', onClick: sh => togglePin(m, sh)});
+  if (m.user_id === state.me.id || state.isOwner) { if (!state.isOwner) items.push('sep'); items.push({label: 'Delete Message', svg: 'trash', danger: true, onClick: sh => askDelete(m, sh)}); }
   return items;
 }
 async function delMsg(id) { await sb.from('messages').delete().eq('id', id); state.messages.delete(id); renderMessages(); }
@@ -736,7 +838,7 @@ function renderPins() {
     const url = safeUrl(p.attachment_url), img = url && (p.attachment_type || '').startsWith('image/');
     const av = avatarSrc({avatar_url: p.author_avatar, username: p.author_name});
     return `<div class="pinitem"><img class="av sm" src="${esc(av)}" alt="${esc(p.author_name)}">
-      <div class="pbody" data-jump="${p.message_id ?? ''}"><b style="color:${colorFor(p.author_id || p.author_name)}">${esc(p.author_name)}</b> <small>${fmtTime(p.msg_created_at || p.pinned_at)}</small>
+      <div class="pbody" data-jump="${p.message_id ?? ''}"><b style="color:${nameColor(prof(p.author_id))}">${esc(p.author_name)}</b> <small>${fmtTime(p.msg_created_at || p.pinned_at)}</small>
       ${p.content ? `<div>${formatContent(p.content)}</div>` : ''}${img ? `<img class="pa" src="${esc(url)}" alt="">` : url ? `<a class="file" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${ic('file', 'sm')} ${esc(p.attachment_name || 'file')}</a>` : ''}</div>
       ${state.isOwner ? `<button class="iconbtn pdel" data-del="${p.id}" data-tip="Remove Pin">${svg('trash')}</button>` : ''}</div>`;
   }).join('') : '<div class="empty" style="padding:16px">No pinned messages in this channel.</div>');
@@ -748,9 +850,13 @@ $('pinsPanel').onclick = e => {
   const j = e.target.closest('[data-jump]');
   if (j && j.dataset.jump && state.messages.has(+j.dataset.jump)) { jumpTo(+j.dataset.jump); closeOverlays('none'); }
 };
-async function togglePin(m) {
+async function togglePin(m, shift) {
   if (!state.isOwner) return;
   const ex = state.pins.find(p => p.message_id === m.id); if (ex) return unpin(ex);
+  if (!shift) return confirmBox({title: 'Pin Message', body: 'Pin this message to #' + m.channel + '? Everyone in the channel will see it in the pinned list.', preview: previewOf(m), label: 'Pin', run: () => pinNow(m)});
+  return pinNow(m);
+}
+async function pinNow(m) {
   const ch = curChannel(); if (!ch) return;
   const pr = prof(m.user_id); let url = safeUrl(m.attachment_url) || null;
   if (url) {
@@ -821,7 +927,7 @@ let pickerCb = null;
 function buildPicker() {
   $('picker').innerHTML = `<div class="es"><input id="eSearch" placeholder="Search emoji" autocomplete="off"></div>
     <div class="et">${EMO.map((c, i) => `<button data-tab="${i}" data-tip="${c.name}">${c.icon}</button>`).join('')}</div>
-    <div class="eg" id="eGrid"></div><div class="ef"><span class="pv">${EMO[0].icon}</span><span class="pn">Pick an emoji</span></div>`;
+    <div class="eg" id="eGrid"></div><div class="ef"><span class="pv">${EMO[0].icon}</span><span class="pn">Shift-click or right-click to favorite</span></div>`;
   renderPickerGrid('');
 }
 function renderPickerGrid(q) {
@@ -833,6 +939,7 @@ function renderPickerGrid(q) {
     h = res.length ? `<div class="er" style="margin-top:6px">${res.map(btn).join('')}</div>` : '<div class="empty">No emoji found</div>';
   } else {
     const fr = JSON.parse(localStorage.getItem('anonchat_freq') || '[]');
+    const pf = pinnedEmojis(); if (pf.length) h += `<div class="eh">Favorites</div><div class="er">${pf.map(e => btn({e, n: emojiName(e)})).join('')}</div>`;
     if (fr.length) h += `<div class="eh" id="es-f">Frequently Used</div><div class="er">${fr.map(e => btn({e, n: emojiName(e)})).join('')}</div>`;
     EMO.forEach((c, i) => { h += `<div class="eh" id="es-${i}">${c.name}</div><div class="er">${c.list.map(btn).join('')}</div>`; });
   }
@@ -853,7 +960,9 @@ $('picker').addEventListener('mouseover', e => { const b = e.target.closest('[da
 $('picker').addEventListener('click', e => {
   const t = e.target.closest('[data-tab]');
   if (t) { const g = $('eGrid'), el = $('es-' + t.dataset.tab); if (el) g.scrollTo({top: el.offsetTop - g.offsetTop}); return; }
-  const b = e.target.closest('[data-e]'); if (!b || !pickerCb) return;
+  const b = e.target.closest('[data-e]'); if (!b) return;
+  if (e.shiftKey) { togglePinEmoji(b.dataset.e); renderPickerGrid($('eSearch').value); return; }
+  if (!pickerCb) return;
   const f = JSON.parse(localStorage.getItem('anonchat_freq') || '[]').filter(x => x !== b.dataset.e); f.unshift(b.dataset.e);
   localStorage.setItem('anonchat_freq', JSON.stringify(f.slice(0, 24)));
   const cb = pickerCb; closeOverlays('none'); cb(b.dataset.e);
@@ -869,21 +978,38 @@ function autosize() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.sc
 function updateSend() { $('sendBtn').classList.toggle('ready', !!(ta.value.trim() || state.pending)); }
 let ac = null;
 const hideAC = () => { ac = null; $('ac').hidden = true; };
-function renderAC() { $('ac').hidden = false; $('ac').innerHTML = ac.items.map((p, i) => `<div class="${i === ac.idx ? 'sel' : ''}" data-i="${i}">${avImg(p, 'sm')} ${esc(p.username)}</div>`).join(''); }
+function renderAC() {
+  $('ac').hidden = false;
+  $('ac').innerHTML = ac.items.map((p, i) => `<div class="${i === ac.idx ? 'sel' : ''}" data-i="${i}">${ac.type === 'e' ? `<span class="ae">${p.e}</span> :${esc(p.code)}:` : `${avImg(p, 'sm')} ${esc(p.username)}`}</div>`).join('');
+}
 function updateAC() {
-  const pos = ta.selectionStart, m = /(^|\s)@([A-Za-z0-9_]*)$/.exec(ta.value.slice(0, pos));
-  if (!m) return hideAC();
-  const q = m[2].toLowerCase(), items = [...state.profiles.values()].filter(p => p.username.toLowerCase().startsWith(q)).slice(0, 6);
-  if (!items.length) return hideAC();
-  ac = {items, idx: 0, start: pos - m[2].length - 1}; renderAC();
+  const pos = ta.selectionStart, before = ta.value.slice(0, pos);
+  let m = /(^|\s)@([A-Za-z0-9_]*)$/.exec(before);
+  if (m) {
+    const q = m[2].toLowerCase(), items = [...state.profiles.values()].filter(p => p.username.toLowerCase().startsWith(q)).slice(0, 6);
+    if (!items.length) return hideAC();
+    ac = {type: 'm', items, idx: 0, start: pos - m[2].length - 1}; return renderAC();
+  }
+  m = /(^|\s):([a-z0-9_+-]{2,})$/i.exec(before);
+  if (m) {
+    const items = emojiMatches(m[2]);
+    if (!items.length) return hideAC();
+    ac = {type: 'e', items, idx: 0, start: pos - m[2].length - 1}; return renderAC();
+  }
+  hideAC();
 }
 function pickAC(i) {
-  const p = ac.items[i], pos = ta.selectionStart;
-  ta.value = ta.value.slice(0, ac.start) + '@' + p.username + ' ' + ta.value.slice(pos);
-  const np = ac.start + p.username.length + 2; ta.setSelectionRange(np, np); hideAC(); ta.focus(); updateSend();
+  const it = ac.items[i], pos = ta.selectionStart, ins = ac.type === 'e' ? it.e + ' ' : '@' + it.username + ' ';
+  ta.value = ta.value.slice(0, ac.start) + ins + ta.value.slice(pos);
+  const np = ac.start + ins.length; ta.setSelectionRange(np, np); hideAC(); ta.focus(); autosize(); updateSend();
 }
 $('ac').onmousedown = e => { e.preventDefault(); const d = e.target.closest('[data-i]'); if (d) pickAC(+d.dataset.i); };
-ta.addEventListener('input', () => { autosize(); updateAC(); updateSend(); });
+ta.addEventListener('input', () => {
+  const pos = ta.selectionStart, m = /(^|\s):([a-z0-9_+-]{2,}):$/i.exec(ta.value.slice(0, pos));
+  if (m) { const em = emojiByCode(m[2]); if (em) ta.setRangeText(em, pos - m[2].length - 2, pos, 'end'); }
+  autosize(); updateAC(); updateSend();
+  if (state.unread[state.channel] || state.mentions[state.channel]) markRead(state.channel);
+});
 ta.addEventListener('keydown', e => {
   if (ac) {
     if (e.key === 'ArrowDown') { e.preventDefault(); ac.idx = (ac.idx + 1) % ac.items.length; return renderAC(); }
@@ -914,7 +1040,7 @@ async function postMessage(row) {
 }
 let sending = false, lastSend = 0;
 async function send() {
-  const text = ta.value.trim();
+  const text = shortcodes(ta.value.trim());
   if ((!text && !state.pending) || sending || Date.now() - lastSend < 600) return;
   sending = true; $('sendBtn').disabled = true;
   try {
@@ -950,7 +1076,7 @@ async function removeFav(f) {
   await loadFavs(); renderMessages(); renderFavs();
 }
 function renderFavs() {
-  $('favPanel').innerHTML = `<div style="display:flex;align-items:center;gap:8px"><span class="ph">${svg('star', 'fill')} Saved Photos</span><span style="flex:1"></span>
+  $('favPanel').innerHTML = `<div class="fhead"><span class="ph">${svg('star', 'fill')} Saved Photos</span>
     <button class="btn sec sm" id="favAdd" type="button">${ic('plus', 'sm')} Add photo</button></div>
     ${state.favs.length ? `<div class="gr">${state.favs.map((f, i) => `<div class="fi" data-i="${i}"><img src="${esc(safeUrl(f.url))}" alt=""><button class="rm" data-rm="${i}">${ic('x', 'sm')}</button></div>`).join('')}</div>`
       : '<div class="empty" style="padding:16px">Tap the star on any photo in chat to save it here. Tap a saved photo to resend it.</div>'}
@@ -982,7 +1108,9 @@ function tick() {
   $('timer').classList.toggle('soon', left !== null && left <= 30);
   if (left === 0 && state.clearedFor !== nxt) {
     state.clearedFor = nxt;
-    state.messages = new Map(); state.reactions = new Map(); state.votes = new Map(); state.unread = {}; state.mentionCount = 0; state.replyTo = null;
+    const keepCh = new Set([...state.channels.values()].filter(c => c.auto_clear === false).map(c => c.name));
+    for (const [id, m] of state.messages) if (!keepCh.has(m.channel)) { state.messages.delete(id); state.reactions.delete(id); state.votes.delete(id); }
+    state.unread = {}; state.mentions = {}; state.mentionCount = 0; state.replyTo = null;
     renderReply(); renderChannels(); renderMessages(); updateTitle();
     setTimeout(async () => { await loadSettings(); await loadMessages(); renderMessages(); }, 8000);
   }
@@ -992,6 +1120,9 @@ async function loadSettings() {
   (data || []).forEach(r => { if (r.key !== 'last_wipe_at') state.settings[r.key] = r.value; });
 }
 function updateTitle() { document.title = state.mentionCount ? `(${state.mentionCount}) anon chat` : 'anon chat'; }
+function recountMentions() { state.mentionCount = Object.values(state.mentions).reduce((a, b) => a + b, 0); }
+function markRead(name) { state.unread[name] = 0; delete state.mentions[name]; recountMentions(); renderChannels(); updateTitle(); }
+function markAllRead() { state.unread = {}; state.mentions = {}; state.mentionCount = 0; renderChannels(); updateTitle(); }
 
 /* ---------- settings, owner tools, profile editing ---------- */
 function applyMode() { state.isOwner = state.realOwner && state.ownerMode; renderChannels(); renderMe(); renderMembers(); renderMessages(); renderPins(); }
@@ -1004,11 +1135,11 @@ function openSettings() {
       <div class="setrow"><div class="tx"><b>Account mode</b><small>Switch to User to see the chat the way members do.</small></div>
         <div class="seg ${on ? '' : 's'}" id="modeSeg"><span class="ind"></span><button data-m="owner" class="${on ? 'on' : ''}">Owner</button><button data-m="user" class="${on ? '' : 'on'}">User</button></div></div>
       ${on ? `<div class="setrow"><div class="tx"><b>Show OWNER tag</b><small>Controls whether everyone sees the tag next to your name.</small></div><button class="sw ${state.settings.show_owner_tag ? 'on' : ''}" id="swTag"></button></div>
-      <div class="setrow" style="display:block"><div class="slv"><b>Reset timer</b><span id="slVal">${wl(WIPE[wi])}</span></div><div class="sl"><input type="range" id="slWipe" min="0" max="6" step="1" value="${wi}" style="--p:${wi / 6 * 100}%"></div><div class="slab">${WIPE.map(v => `<span>${v === 60 ? '1h' : v + 'm'}</span>`).join('')}</div><div class="hint" style="margin-bottom:0">A new length starts after the current countdown finishes.</div></div>
+      <div class="setrow" style="display:block"><div class="slv"><b>Reset timer</b><span id="slVal">${wl(WIPE[wi])}</span></div><div class="sl"><input type="range" id="slWipe" min="0" max="6" step="1" value="${wi}" style="--p:calc(${wi / 6} * (100% - 12px) + 6px)"></div><div class="slab">${WIPE.map((v, k) => `<span style="--i:${k}">${v === 60 ? '1h' : v + 'm'}</span>`).join('')}</div><div class="hint" style="margin-bottom:0">A new length starts after the current countdown finishes.</div></div>
       <div class="setrow"><div class="tx"><b>Clear chat now</b><small>Wipes every message and upload immediately.</small></div><button class="btn danger sm" id="wipeNow">Clear</button></div>
-      <div class="sec" style="margin-top:8px"><div class="sh">${ic('link')} Invite keys</div>
+      <div class="acc" id="accKeys"><button type="button" class="acch" id="accBtn">${ic('link')}<span>Invite keys</span><span class="cnt" id="keyCnt"></span>${ic('chev', 'chv')}</button><div class="accb"><div class="acci">
         <div class="hint">Each key works once. Give one to someone so they can create an account. A key shows as used here once it has been claimed.</div>
-        <button class="btn" id="genKey">${ic('plus', 'sm')} Generate key</button><div class="invites" id="inviteList"></div></div>` : ''}</div>` : ''}
+        <button class="btn" id="genKey">${ic('plus', 'sm')} Generate key</button><div class="invites" id="inviteList"></div></div></div></div>` : ''}</div>` : ''}
     <div class="row"><button class="btn danger" id="logout">Log out</button></div>`, {wide: true});
   $('logout').onclick = async () => { await sb.auth.signOut(); location.reload(); };
   if (!own) return;
@@ -1016,7 +1147,7 @@ function openSettings() {
   if (!on) return;
   $('swTag').onclick = async () => { const v = !state.settings.show_owner_tag; state.settings.show_owner_tag = v; $('swTag').classList.toggle('on', v); renderMembers(); renderMessages(); await sb.from('app_settings').upsert({key: 'show_owner_tag', value: v}); };
   const sl = $('slWipe');
-  sl.oninput = () => { const i = +sl.value; sl.style.setProperty('--p', i / 6 * 100 + '%'); $('slVal').textContent = wl(WIPE[i]); };
+  sl.oninput = () => { const i = +sl.value; sl.style.setProperty('--p', `calc(${i / 6} * (100% - 12px) + 6px)`); $('slVal').textContent = wl(WIPE[i]); };
   sl.onchange = async () => { const v = WIPE[+sl.value]; const {data, error} = await sb.rpc('set_wipe_minutes', {m: v}); if (error || data !== v) return toast('Could not change the timer'); state.settings.wipe_minutes = v; toast('Saved: ' + wl(v) + '. It starts after the current countdown.'); };
   armButton($('wipeNow'), 'Clear', async () => { const {error} = await sb.rpc('wipe_now'); toast(error ? 'Could not clear chat' : 'Chat cleared'); $('wipeNow').textContent = 'Clear'; });
   $('genKey').onclick = async () => {
@@ -1029,14 +1160,16 @@ function openSettings() {
     if (c) copyText(c.dataset.copy);
     if (r) { await sb.from('invite_keys').delete().eq('id', +r.dataset.revoke); state.invites = state.invites.filter(k => k.id !== +r.dataset.revoke); renderInvites(); }
   };
+  $('accBtn').onclick = () => $('accKeys').classList.toggle('open');
   loadInvites();
 }
 async function loadInvites() { const {data} = await sb.from('invite_keys').select('*').order('id', {ascending: false}); state.invites = data || []; renderInvites(); }
 function renderInvites() {
+  const kc = $('keyCnt'); if (kc) kc.textContent = state.invites.length ? state.invites.filter(k => !k.used_at).length + ' unused' : '';
   const box = $('inviteList'); if (!box) return;
   if (!state.invites.length) { box.innerHTML = '<div class="hint">No keys yet.</div>'; return; }
   box.innerHTML = state.invites.map(k => {
-    if (k.used_at) { const who = k.used_by ? prof(k.used_by).username : null; return `<div class="inv used"><code>${esc(k.key)}</code><span class="st ok">${ic('check', 'sm')} Used${who ? ' by ' + esc(who) : ''}</span></div>`; }
+    if (k.used_at) { const who = k.used_by ? prof(k.used_by).username : null; return `<div class="inv used"><code>${esc(k.key)}</code><span class="st ok">${ic('check', 'sm')} Used${who ? ' by ' + esc(who) : ''}</span><button class="mini" data-revoke="${k.id}">Dismiss</button></div>`; }
     return `<div class="inv"><code>${esc(k.key)}</code><span class="st">Unused</span><button class="mini" data-copy="${esc(k.key)}">Copy</button><button class="mini" data-revoke="${k.id}">Revoke</button></div>`;
   }).join('');
 }
@@ -1056,12 +1189,16 @@ function openEdit(uid) {
       <button class="btn sec sm" id="edUpAv" style="width:100%">Upload picture</button><input type="file" id="edFile" accept="image/png,image/jpeg,image/gif,image/webp" hidden></div></div>
     <div style="margin-top:14px"><label class="l">Username</label><input class="field" id="edName" maxlength="24" value="${esc(p.username)}" autocomplete="off">
     <div class="hint">Letters, numbers and underscores, 2 to 24 characters.</div></div>
+    <label class="l">Name color</label>
+    <div class="swatches" id="edSw">${PALETTE.map(c => `<button type="button" class="swc" data-c="${c}" style="background:${c}"></button>`).join('')}</div>
+    <input class="field" id="edColor" maxlength="7" value="${esc(nameColor(p))}" autocomplete="off">
     <button class="btn sec sm" id="edRandName">Randomize name</button>
     <div class="err" id="edErr"></div><div class="row"><button class="btn" id="edSave">Save Changes</button></div>
     ${canClose ? `<div class="sec"><div class="sh">Close account</div><div class="hint">Deletes this account and its messages. They will need a new invite key to sign up again.</div><button class="btn danger" id="edClose">Close Account</button></div>` : ''}`);
   $('edRandAv').onclick = () => { avatar = 'seed:' + crypto.randomUUID().slice(0, 8); $('edAv').src = genAvatar(avatar.slice(5)); };
   $('edRandName').onclick = () => { $('edName').value = pick(ADJ) + pick(ANI) + (1000 + Math.floor(Math.random() * 9000)); };
   $('edUpAv').onclick = () => $('edFile').click();
+  $('edSw').onclick = e => { const b = e.target.closest('[data-c]'); if (b) $('edColor').value = b.dataset.c; };
   $('edFile').onchange = async e => {
     const f = e.target.files[0]; if (!f) return;
     if (f.size > MAX_FILE || !/^image\/(png|jpe?g|gif|webp)$/.test(f.type)) return $('edErr').textContent = 'Choose an image under 10 MB';
@@ -1073,7 +1210,9 @@ function openEdit(uid) {
   $('edSave').onclick = async () => {
     const name = $('edName').value.trim();
     if (!/^[A-Za-z0-9_]{2,24}$/.test(name)) return $('edErr').textContent = 'Invalid username';
-    const {data, error} = await sb.from('profiles').update({username: name, avatar_url: avatar}).eq('id', uid).select();
+    const color = $('edColor').value.trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(color)) return $('edErr').textContent = 'Color must look like #5865f2';
+    const {data, error} = await sb.from('profiles').update({username: name, avatar_url: avatar, name_color: color}).eq('id', uid).select();
     if (error) return $('edErr').textContent = /duplicate|unique/i.test(error.message) ? 'That username is taken' : 'Could not save';
     if (!data.length) return $('edErr').textContent = 'Not allowed';
     state.profiles.set(uid, data[0]); rebuildNames(); renderMe(); renderMembers(); renderMessages(); closeModal();
@@ -1095,18 +1234,23 @@ document.addEventListener('contextmenu', e => {
   e.preventDefault();
   if (!state.me || $('app').hidden) { const s = getSelection().toString(); if (s) showCtx(e.clientX, e.clientY, [{label: 'Copy', icon: 'file', onClick: () => copyText(s)}]); return; }
   const t = e.target, x = e.clientX, y = e.clientY; let items = [];
+  const pe = t.closest('#picker [data-e]');
+  if (pe) { const e0 = pe.dataset.e; showCtx(x, y, [{label: pinnedEmojis().includes(e0) ? 'Unpin from Favorites' : 'Pin to Favorites', icon: 'pin', onClick: () => { togglePinEmoji(e0); renderPickerGrid($('eSearch').value); }}], {keepPicker: true}); return; }
   const inp = t.closest('textarea,input:not([type=file])'), msg = t.closest('.msg'), usr = t.closest('[data-uid]'), chn = t.closest('[data-ch]'), cat = t.closest('[data-cat]'), side = t.closest('#channels');
   if (inp) items = inputMenu(inp);
   else if (usr && (!msg || t.closest('.avc,.un'))) items = userMenu(usr.dataset.uid);
   else if (msg) { const m = state.messages.get(+msg.dataset.id); if (m) items = msgMenu(m, x, y); }
   else if (chn) {
     const c = [...state.channels.values()].find(k => k.name === chn.dataset.ch);
-    items = [{label: 'Mark as Read', icon: 'check', onClick: () => { state.unread[chn.dataset.ch] = 0; renderChannels(); }}, {label: 'Copy Channel Name', icon: 'channel', onClick: () => copyText(chn.dataset.ch)}];
+    items = [{label: 'Mark as Read', icon: 'check', onClick: () => markRead(chn.dataset.ch)}, {label: 'Mark All as Read', icon: 'check', onClick: markAllRead}, {label: 'Copy Channel Name', icon: 'channel', onClick: () => copyText(chn.dataset.ch)}];
     if (state.isOwner && c) items.push('sep', {label: 'Edit Channel', icon: 'edit', onClick: () => openChannelModal(c.id)});
   } else if (cat && state.isOwner) {
     const id = +cat.dataset.cat;
-    items = [{label: 'Create Channel', icon: 'plus', onClick: () => openChannelModal(null, id)}, {label: cat.classList.contains('col') ? 'Expand Category' : 'Collapse Category', icon: 'arrow', onClick: () => toggleCat(id)}, 'sep', {label: 'Edit Category', icon: 'edit', onClick: () => openCategoryModal(id)}];
-  } else if (side && state.isOwner) items = [{label: 'Create Channel', icon: 'channel', onClick: () => openChannelModal()}, {label: 'Create Category', icon: 'arrow', onClick: () => openCategoryModal()}];
+    items = [{label: 'Create Channel', icon: 'plus', onClick: () => openChannelModal(null, id)}, {label: cat.classList.contains('col') ? 'Expand Category' : 'Collapse Category', icon: 'chev', onClick: () => toggleCat(id)}, 'sep', {label: 'Edit Category', icon: 'edit', onClick: () => openCategoryModal(id)}];
+  } else if (side) {
+    items = [{label: 'Mark All as Read', icon: 'check', onClick: markAllRead}];
+    if (state.isOwner) items.push('sep', {label: 'Create Channel', icon: 'channel', onClick: () => openChannelModal()}, {label: 'Create Category', icon: 'chev', onClick: () => openCategoryModal()});
+  }
   const s = getSelection().toString();
   if (!items.length && s) items = [{label: 'Copy', icon: 'file', onClick: () => copyText(s)}];
   if (items.length) showCtx(x, y, items); else closeOverlays('none');
