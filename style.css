@@ -399,3 +399,23 @@ body{font-size:15px;line-height:1.45}
 .acc.open .accb{grid-template-rows:1fr}
 .acci{overflow:hidden;min-height:0}
 .acc.open .acci{padding-top:14px}
+
+/* larger, Discord-sized text */
+body{font-size:16px}
+.ch{font-size:16px}.mem .mn{font-size:16px}.catbtn{font-size:13px}
+header .title{font-size:17px}
+.msg .body,.msg .un{font-size:17px}
+.msg .body{line-height:1.45}
+.mh{min-height:24px}
+.ts{font-size:12.5px}
+.replyref{font-size:14px}.replyref .av.xs{width:18px;height:18px}
+.tag{font-size:11px}
+.me .nm{font-size:15px}.me .st{font-size:12.5px}
+.rx{font-size:16px}.rx span{font-size:13px}
+.po,.poll .pq{font-size:15px}
+.md-code,.md-pre code{font-size:.9em}
+/* centered icons and send bar */
+.i-chat{--i:url(assets/icons/chat-centered.png)}
+.chedit{top:calc(50% - 1px);transform:translateY(-50%)}
+#composer{align-items:center}
+#composer textarea{font-size:17px;line-height:24px;padding:11px 6px;min-height:46px}
