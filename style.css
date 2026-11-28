@@ -317,3 +317,85 @@ header .grow{flex:1}
 /* mobile polish */
 @supports(height:100dvh){html,body{height:100dvh}}
 @media(max-width:700px){input,textarea{font-size:16px}#modalBody{padding:24px}}
+
+/* Montserrat everywhere (self-hosted) */
+@font-face{font-family:'Montserrat';font-weight:400;font-style:normal;font-display:swap;src:url(fonts/montserrat-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Montserrat';font-weight:500;font-style:normal;font-display:swap;src:url(fonts/montserrat-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:'Montserrat';font-weight:600;font-style:normal;font-display:swap;src:url(fonts/montserrat-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Montserrat';font-weight:700;font-style:normal;font-display:swap;src:url(fonts/montserrat-latin-700-normal.woff2) format('woff2')}
+body,button,input,textarea{font-family:'Montserrat',system-ui,-apple-system,'Segoe UI',sans-serif}
+body{font-size:15px;line-height:1.45}
+/* chevron (spearhead only) */
+.i-chev{--i:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 4l8 8-8 8'/%3E%3C/svg%3E")}
+/* slightly larger interface */
+:root{--sidew:260px;--memw:260px}
+.brand,header{height:54px}.me{height:60px}
+.ic{width:22px;height:22px}.ic.sm{width:16px;height:16px}.ic.lg{width:30px;height:30px}
+.iconbtn{width:36px;height:36px}
+.ch{padding:8px 10px}.ch .ic{width:20px;height:20px}.ch .sv{width:18px;height:18px;opacity:.8}
+.msg{padding-top:3px;padding-bottom:3px}
+#composer .iconbtn{width:42px;height:42px}
+#composer textarea{padding:13px 6px}
+.catbtn .ic{width:14px;height:14px}.ddb .ic{width:14px;height:14px}.ic.sm{width:16px;height:16px}
+.tag .ic{width:12px;height:12px}.tools .ic{width:18px;height:18px}
+/* bigger gap above the input */
+#msgs{padding-bottom:32px}
+#composer{margin-top:10px;margin-bottom:24px}
+/* hover bar */
+.bar{top:-24px;gap:2px;padding:3px}
+.bar button{width:34px;height:30px;font-size:17px}
+.bar .ic,.bar .sv{width:20px;height:20px}
+/* slider labels sit exactly under the stops */
+.slab{position:relative;display:block;height:20px;margin:10px 0 10px}
+.slab span{position:absolute;top:0;left:calc(var(--i) / 6 * (100% - 12px) + 6px);transform:translateX(-50%);font-size:12px;color:var(--muted);white-space:nowrap}
+/* saved photos + pins panels */
+.fhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+#favPanel .gr{margin-top:0;gap:8px}
+#favPanel .btn.sm{height:34px;white-space:nowrap}
+#pinsPanel .ph{margin-bottom:10px}
+/* mark all as read */
+.markall{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:14px;padding:9px;border-radius:6px;font-size:13px;color:var(--muted);background:#232428;transition:background .15s,color .15s}
+.markall:hover{background:#35373c;color:#fff}
+/* system messages (Discord style) */
+.msg.sys{display:block;padding:5px 48px 5px 72px;margin-top:6px;min-height:0}
+.msg.sys .sysic{position:absolute;left:16px;top:6px;width:40px;display:flex;justify-content:center}
+.msg.sys .sysic .ic{width:18px;height:18px;color:#23a559}
+.msg.sys .sysic .syspin{color:#949ba4}
+.msg.sys .body{display:inline}.msg.sys .ts{margin-left:8px}
+.msg.sys b{color:#fff;font-weight:600}
+.msg.sys a{color:#fff;font-weight:600;cursor:pointer}.msg.sys a:hover{text-decoration:underline}
+/* markdown */
+.md-h{font-weight:700;margin:6px 0 2px;line-height:1.25}.md-h1{font-size:1.65em}.md-h2{font-size:1.35em}.md-h3{font-size:1.15em}
+.md-sub{font-size:.8em;color:var(--muted)}
+.md-quote{border-left:4px solid #4e5058;padding:0 12px;margin:2px 0;border-radius:2px}
+.md-ul{margin:2px 0;padding-left:28px}.md-ul li{margin:1px 0}
+.md-code{background:#1e1f22;border-radius:4px;padding:1px 5px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em}
+.md-pre{background:#2b2d31;border:1px solid #1e1f22;border-radius:6px;padding:10px 12px;margin:4px 0;overflow:auto;max-width:560px}
+.md-pre code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;white-space:pre}
+.md-spoiler{background:#1e1f22;color:transparent;border-radius:3px;padding:0 3px;cursor:pointer;transition:background .15s,color .15s}
+.md-spoiler.on{background:#40424a;color:inherit}
+#ac .ae{font-size:22px;width:28px;text-align:center}
+/* confirm dialogs */
+.pvbox{background:var(--dark);border-radius:8px;padding:12px;margin-bottom:12px;overflow-wrap:anywhere;max-height:160px;overflow:auto}
+.pvh{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+/* channel settings: member picker, name colors */
+.memlist{max-height:210px;overflow:auto;background:var(--dark);border-radius:8px;padding:6px;margin:0 0 18px}
+.mrow{display:flex;align-items:center;gap:10px;width:100%;padding:6px 8px;border-radius:6px;text-align:left;transition:background .12s}
+.mrow:hover{background:#2b2d31}
+.cbx{width:18px;height:18px;border-radius:4px;border:2px solid #6d6f78;flex-shrink:0;position:relative;transition:background .12s,border-color .12s}
+.cbx.on{background:var(--blurple);border-color:var(--blurple)}
+.cbx.on:after{content:"";position:absolute;left:4px;top:0;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+.swc{width:28px;height:28px;border-radius:50%;border:2px solid transparent;transition:transform .12s,border-color .12s}
+.swc:hover{transform:scale(1.15);border-color:#fff}
+/* invite keys accordion */
+.acc{margin-top:10px}
+.acch{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border-radius:8px;background:#2b2d31;font-weight:600;transition:background .15s}
+.acch:hover{background:#35373c}
+.acch .cnt{margin-left:auto;font-size:12px;color:var(--muted);font-weight:500}
+.acch .chv{width:14px;height:14px;transition:transform .22s var(--ease)}
+.acc.open .acch .chv{transform:rotate(90deg)}
+.accb{display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s var(--ease)}
+.acc.open .accb{grid-template-rows:1fr}
+.acci{overflow:hidden;min-height:0}
+.acc.open .acci{padding-top:14px}
